@@ -6,3 +6,4 @@
 #include <cassert>
 #include <fstream>
 #include <filesystem>
+#include <vector>
