@@ -23,11 +23,15 @@ jobs:
         curl -fsSL https://xmake.io/shget.text | bash
         echo "$HOME/.xmake/bin" >> $GITHUB_PATH
 
-      # Build the project
     - name: Build with Xmake
       run: |
         xmake f -m release
         xmake build -v
+
+    - name: Set up MinGW
+      uses: egor-tensin/setup-mingw@v2
+      with:
+        platform: x64
 
     - uses: robinraju/release-downloader@v1.11
       with:
