@@ -173,6 +173,7 @@ bool DetectGame()
 
 void DisablePillarboxing()
 {
+    // job_draw_bars() patterns
     std::vector<const char*> DrawBarsPatterns = {
         "40 ?? ?? 41 ?? 48 8D ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? B9 ?? ?? ?? ??",                                              // Pirate/LAD8/Gaiden
         "40 ?? 48 8D ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? B9 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0",                                  // LAD7/Judgment
@@ -189,7 +190,6 @@ void DisablePillarboxing()
         {
             spdlog::info("Disable Pillarboxing: Address: {:s}+0x{:x}", sExeName, DrawBarsScanResult - (std::uint8_t*)exeModule);
             Memory::PatchBytes(DrawBarsScanResult, "\xC3\x90", 2);
-            spdlog::info("Disable Pillarboxing: Patched instruction.");
         }
     }
     else
@@ -200,7 +200,6 @@ void DisablePillarboxing()
 
 void ShadowResolution()
 {
-
     if (eGameType == Game::OgreF) 
     {
         // Yakuza 6: Shadow resolution
@@ -210,15 +209,13 @@ void ShadowResolution()
             spdlog::info("Shadow Resolution: Address: {:s}+0x{:x}", sExeName, ShadowResolutionScanResult - (std::uint8_t*)exeModule);
             Memory::Write(ShadowResolutionScanResult + 0x6, iShadowResolution);
             Memory::Write(ShadowResolutionScanResult + 0x10, iShadowResolution);
-            spdlog::info("Shadow Resolution: Patched instruction.");
         }
         else
         {
             spdlog::error("Shadow Resolution: Pattern scan(s) failed.");
         }
     }
-
-    if (eGameType == Game::Lexus2) 
+    else if (eGameType == Game::Lexus2) 
     {
         // Kiwami 2: Shadow resolution
         std::uint8_t* ShadowResolutionScanResult = Memory::PatternScan(exeModule, "E8 ?? ?? ?? ?? BA 00 08 00 00 41 ?? 00 04 00 00");
@@ -227,34 +224,32 @@ void ShadowResolution()
             spdlog::info("Shadow Resolution: Address: {:s}+0x{:x}", sExeName, ShadowResolutionScanResult - (std::uint8_t*)exeModule);
             Memory::Write(ShadowResolutionScanResult + 0x6, iShadowResolution);
             Memory::Write(ShadowResolutionScanResult + 0xC, iShadowResolution / 2);
-            spdlog::info("Shadow Resolution: Patched instruction.");
         }
         else
         {
             spdlog::error("Shadow Resolution: Pattern scan(s) failed.");
         }
     }
-
-    if (eGameType != Game::OgreF && eGameType != Game::Lexus2)
+    else 
     {
-          // Newer: Shadow resolution
-          std::uint8_t* ShadowResolutionScanResult = Memory::PatternScan(exeModule, "39 ?? ?? ?? ?? ?? 75 ?? 39 ?? ?? ?? ?? ?? 75 ?? ?? ?? C3");
-          if (ShadowResolutionScanResult)
-          {
-              spdlog::info("Shadow Resolution: Address: {:s}+0x{:x}", sExeName, ShadowResolutionScanResult - (std::uint8_t*)exeModule);
-              static SafetyHookMid ShadowResolutionMidHook{};
-              ShadowResolutionMidHook = safetyhook::create_mid(ShadowResolutionScanResult,
-                  [](SafetyHookContext &ctx)
-                  {
-                      // Check if shadowmap resolution is 2048x2048
-                      if (ctx.rcx == 0x800)
-                          ctx.rcx = ctx.rdx = static_cast<uintptr_t>(iShadowResolution);
-                  });
-          }
-          else
-          {
-              spdlog::error("Shadow Resolution: Pattern scan(s) failed.");
-          }
+        // Newer: Shadow resolution
+        std::uint8_t* ShadowResolutionScanResult = Memory::PatternScan(exeModule, "39 ?? ?? ?? ?? ?? 75 ?? 39 ?? ?? ?? ?? ?? 75 ?? ?? ?? C3");
+        if (ShadowResolutionScanResult)
+        {
+            spdlog::info("Shadow Resolution: Address: {:s}+0x{:x}", sExeName, ShadowResolutionScanResult - (std::uint8_t*)exeModule);
+            static SafetyHookMid ShadowResolutionMidHook{};
+            ShadowResolutionMidHook = safetyhook::create_mid(ShadowResolutionScanResult,
+                [](SafetyHookContext &ctx)
+                {
+                    // Check if shadowmap resolution is 2048x2048
+                    if (ctx.rcx == 0x800)
+                        ctx.rcx = ctx.rdx = static_cast<uintptr_t>(iShadowResolution);
+                });
+        }
+        else
+        {
+            spdlog::error("Shadow Resolution: Pattern scan(s) failed.");
+        }
     }
 }
 
