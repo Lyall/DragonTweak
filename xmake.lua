@@ -28,5 +28,5 @@ set_optimize("faster")
       add_cxflags("/MTd")
     end
   elseif toolchain == "mingw" then
-     add_ldflags("-static", "-static-libgcc", "-static-libstdc++", {force = true})
+    add_ldflags("-static", "-static-libgcc", "-static-libstdc++", "-lstdc++", {force = true})
   end
