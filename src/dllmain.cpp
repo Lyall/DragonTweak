@@ -27,6 +27,7 @@ std::filesystem::path sExePath;
 std::string sExeName;
 
 // Ini variables
+bool bIntroSkip;
 int iShadowResolution;
 bool bDisablePillarboxing;
 
@@ -138,6 +139,7 @@ void Configuration()
     spdlog::info("----------");
 
     // Load settings from ini
+    inipp::get_value(ini.sections["Intro Skip"], "Enabled", bIntroSkip);
     inipp::get_value(ini.sections["Shadow Quality"], "Resolution", iShadowResolution);
     inipp::get_value(ini.sections["Disable Pillarboxing"], "Enabled", bDisablePillarboxing);
 
@@ -145,6 +147,7 @@ void Configuration()
     iShadowResolution = std::clamp(iShadowResolution, 64, 8192);
 
     // Log ini parse
+    spdlog_confparse(bIntroSkip);
     spdlog_confparse(iShadowResolution);
     spdlog_confparse(bDisablePillarboxing);
 
@@ -169,6 +172,61 @@ bool DetectGame()
     spdlog::error("Detect Game: Failed to detect supported game, {} isn't supported by DragonTweak.", sExeName);
     return false;
 
+}
+
+bool bHasSkippedIntro = false;
+const std::string sTitleLogoID = "title_logo";
+
+void IntroSkip()
+{
+    if (eGameType == Game::Yazawa && bIntroSkip) 
+    {
+        // Intro skip
+        std::uint8_t* CreateConfigSceneScanResult = Memory::PatternScan(exeModule, "8B ?? 4C ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? B9 ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8B ?? 48 85 ??");
+        std::uint8_t* PressAnyKeyDelayScanResult = Memory::PatternScan(exeModule, "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? C5 ?? ?? ?? ?? 48 83 ?? ?? 5B C3");
+        std::uint8_t* PressAnyKeyConfirmScanResult = Memory::PatternScan(exeModule, "74 ?? 48 8B ?? ?? 48 8D ?? ?? ?? 48 83 ?? ?? 41 ?? FF FF FF FF 41 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 33 ??");
+        if (CreateConfigSceneScanResult && PressAnyKeyDelayScanResult && PressAnyKeyConfirmScanResult)
+        {
+            spdlog::info("Intro Skip: Create Config Scene: Address: {:s}+0x{:x}", sExeName, CreateConfigSceneScanResult - (std::uint8_t*)exeModule);
+            static SafetyHookMid CreateConfigSceneMidHook{};
+            CreateConfigSceneMidHook = safetyhook::create_mid(CreateConfigSceneScanResult,
+                [](SafetyHookContext &ctx)
+                {
+                    if (!bHasSkippedIntro)
+                    {
+                        std::string sSceneID = *reinterpret_cast<char**>(ctx.rbx + 0x10);
+                        spdlog::info("Intro Skip: Scene ID = {}", sSceneID);
+
+                        if (Util::string_cmp_caseless(sSceneID, sTitleLogoID))
+                        {
+                            // Set ID to "yazawa_title"
+                            ctx.rdx = 0x2096;
+                        }
+                    }
+                });
+
+            // Remove delay on "press any key" appearing
+            spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyDelayScanResult - (std::uint8_t*)exeModule);
+            Memory::PatchBytes(PressAnyKeyDelayScanResult, "\x90\x90", 2);
+
+            spdlog::info("Intro Skip: Press Any Key Confirm: {:s}+0x{:x}", sExeName, PressAnyKeyConfirmScanResult - (std::uint8_t*)exeModule);
+            static SafetyHookMid PressAnyKeyConfirmMidHook{};
+            PressAnyKeyConfirmMidHook = safetyhook::create_mid(PressAnyKeyConfirmScanResult,
+                [](SafetyHookContext &ctx)
+                {
+                    if (!bHasSkippedIntro)
+                    {
+                        // Clear ZF
+                        ctx.rflags &= (0ULL << 6);
+                        bHasSkippedIntro = true;
+                    }
+                });
+        }
+        else
+        {
+            spdlog::error("Intro Skip: Pattern scan(s) failed.");
+        }
+    }
 }
 
 void DisablePillarboxing()
@@ -233,7 +291,7 @@ void ShadowResolution()
     else 
     {
         // Newer: Shadow resolution
-        std::uint8_t* ShadowResolutionScanResult = Memory::PatternScan(exeModule, "39 ?? ?? ?? ?? ?? 75 ?? 39 ?? ?? ?? ?? ?? 75 ?? ?? ?? C3");
+        std::uint8_t* ShadowResolutionScanResult = Memory::PatternScan(exeModule, "39 0D ?? ?? ?? ?? 75 ?? 39 15 ?? ?? ?? ?? ?? ??");
         if (ShadowResolutionScanResult)
         {
             spdlog::info("Shadow Resolution: Address: {:s}+0x{:x}", sExeName, ShadowResolutionScanResult - (std::uint8_t*)exeModule);
@@ -260,6 +318,7 @@ DWORD __stdcall Main(void*)
 
     if (DetectGame())
     {
+        IntroSkip();
         DisablePillarboxing();
         ShadowResolution();
     }
