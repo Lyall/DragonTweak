@@ -10,17 +10,5 @@ target("DragonTweak")
   add_includedirs("./external/spdlog/include", "./external/inipp", "./external/safetyhook")
   set_extension(".asi")
 
-  set_toolchains("clang", "msvc")
-
-  -- Toolchain-specific flags
-  local toolchain = get_config("toolchain")
-  if toolchain == "msvc" then
-    add_cxflags("/utf-8")
-    if is_mode("release") then
-      add_cxflags("/MT")
-    elseif is_mode("debug") then
-      add_cxflags("/MTd")
-    end
-  elseif toolchain == "clang" then
-    add_cxflags("-static")
-  end
+  set_toolchains("clang")
+  add_cxflags("-static")
