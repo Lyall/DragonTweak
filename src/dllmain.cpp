@@ -235,7 +235,7 @@ void ShadowResolution()
         }
     }
 
-    if (eGameType != Game::OgreF || eGameType != Game::Lexus2)
+    if (eGameType != Game::OgreF && eGameType != Game::Lexus2)
     {
           // Newer: Shadow resolution
           std::uint8_t* ShadowResolutionScanResult = Memory::PatternScan(exeModule, "39 ?? ?? ?? ?? ?? 75 ?? 39 ?? ?? ?? ?? ?? 75 ?? ?? ?? C3");
