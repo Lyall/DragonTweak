@@ -5,9 +5,9 @@ set_optimize("faster")
 
   target("DragonTweak")
     set_kind("shared")
-    add_files("./src/**.cpp", "./external/safetyhook/safetyhook.cpp", "./external/safetyhook/zydis.c")
+    add_files("src/**.cpp", "external/safetyhook/safetyhook.cpp", "external/safetyhook/Zydis.c")
     add_syslinks("user32")
-    add_includedirs("./external/spdlog/include", "./external/inipp", "./external/safetyhook")
+    add_includedirs("external/spdlog/include", "external/inipp", "external/safetyhook")
     set_extension(".asi")
 
   -- Set platform specific toolchain
