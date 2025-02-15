@@ -8,6 +8,7 @@ set_optimize("faster")
     add_files("src/**.cpp", "external/safetyhook/safetyhook.cpp", "external/safetyhook/Zydis.c")
     add_syslinks("user32")
     add_includedirs("external/spdlog/include", "external/inipp", "external/safetyhook")
+    set_prefixname("")
     set_extension(".asi")
 
   -- Set platform specific toolchain
