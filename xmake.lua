@@ -22,5 +22,7 @@ set_optimize("faster")
     end
   elseif is_plat("linux") then 
     set_toolchains("mingw")
-    add_ldflags("-static", "-static-libgcc", "-static-libstdc++", {force = true})
+    add_ldflags("-static")
+    add_ldflags("-static-libgcc")
+    add_ldflags("-static-libstdc++")
   end
