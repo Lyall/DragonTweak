@@ -1,6 +1,6 @@
 set_project("DragonTweak")
 add_rules("mode.debug", "mode.release")
-set_languages("c++latest", "clatest")
+set_languages("cxxlatest", "clatest")
 set_optimize("faster")
 
   target("DragonTweak")
@@ -20,9 +20,4 @@ set_optimize("faster")
     elseif is_mode("debug") then
       add_cxflags("/MTd")
     end
-  elseif is_plat("linux") then 
-    set_toolchains("mingw")
-    add_ldflags("-static")
-    add_ldflags("-static-libgcc")
-    add_ldflags("-static-libstdc++")
   end
