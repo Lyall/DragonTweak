@@ -18,6 +18,11 @@ jobs:
       with:
         submodules: 'true'
 
+    - name: Set up MinGW
+      uses: egor-tensin/setup-mingw@v2
+      with:
+        platform: x64
+        
     - name: Install Xmake
       run: |
         curl -fsSL https://xmake.io/shget.text | bash
@@ -27,11 +32,6 @@ jobs:
       run: |
         xmake f -m release
         xmake build -v
-
-    - name: Set up MinGW
-      uses: egor-tensin/setup-mingw@v2
-      with:
-        platform: x64
 
     - uses: robinraju/release-downloader@v1.11
       with:
