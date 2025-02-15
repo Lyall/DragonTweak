@@ -50,7 +50,7 @@ jobs:
 
     - name: Prepare Release Files
       run: |
-        cp ./build/linux/x86_x64/${{ github.event.repository.name }}.asi ./zip/runtime/media
+        cp ./build/linux/x86_x64/release/${{ github.event.repository.name }}.asi ./zip/runtime/media
         cp ${{ github.event.repository.name }}.ini ./zip/runtime/media
         cp dinput8.dll ./zip/runtime/media/dinput8.dll        
         cp UltimateASILoader_LICENSE.md ./zip/runtime/media
