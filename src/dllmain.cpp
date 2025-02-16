@@ -233,48 +233,53 @@ void IntroSkip()
         }
     }
 
-    // Press any key delay
-    std::vector<const char*> PressAnyKeyDelayPatterns = {
-        "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? C5 ?? ?? ?? ?? 48 83 ?? ?? 5B C3",    // LAD7/Judgment
-        "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? 10 ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? C5 ?? 11 ?? ??"     // LAD8
-    };
+    if (eGameType == Game::Yazawa || eGameType == Game::Judge || eGameType == Game::Elvis || eGameType == Game::Sparrow) 
+    {
+        // Press any key delay
+        std::vector<const char*> PressAnyKeyDelayPatterns = {
+            "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? C5 ?? ?? ?? ?? 48 83 ?? ?? 5B C3",            // LAD7/Judgment
+            "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? 10 ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? C5 ?? 11 ?? ??",            // LAD8
+            "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? C5 ?? ?? ?? 48 8B ?? ?? ?? 48 83 ?? ?? ?? C3"    // Pirate
+        };
 
-    std::vector<std::uint8_t*> PressAnyKeyDelayScanResults = Memory::MultiPatternScanAll(exeModule, PressAnyKeyDelayPatterns);
-    if (!PressAnyKeyDelayScanResults.empty())
-    {
-        spdlog::info("Intro Skip: Press Any Key Delay: Found {} pattern match(es).", PressAnyKeyDelayScanResults.size());
-        for (auto& PressAnyKeyDelayScanResult : PressAnyKeyDelayScanResults) 
+        std::vector<std::uint8_t*> PressAnyKeyDelayScanResults = Memory::MultiPatternScanAll(exeModule, PressAnyKeyDelayPatterns);
+        if (!PressAnyKeyDelayScanResults.empty())
         {
-            // Remove delay on "press any key" appearing
-            spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyDelayScanResult - (std::uint8_t*)exeModule);
-            Memory::PatchBytes(PressAnyKeyDelayScanResult, "\x90\x90", 2);
+            spdlog::info("Intro Skip: Press Any Key Delay: Found {} pattern match(es).", PressAnyKeyDelayScanResults.size());
+            for (auto& PressAnyKeyDelayScanResult : PressAnyKeyDelayScanResults) 
+            {
+                // Remove delay on "press any key" appearing
+                spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyDelayScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(PressAnyKeyDelayScanResult, "\x90\x90", 2);
+            }
         }
-    }
-    else 
-    {
-        spdlog::error("Intro Skip: Press Any Key Delay: Pattern scan(s) failed.");
-    }
+        else 
+        {
+            spdlog::error("Intro Skip: Press Any Key Delay: Pattern scan(s) failed.");
+        }
 
-    // Press any key confirm
-    std::vector<const char*> PressAnyKeyConfirmPatterns = {
-        "74 ?? 48 8B ?? ?? 48 8D ?? ?? ?? 48 83 ?? ?? 41 ?? FF FF FF FF 41 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 33 ??",    // LAD7/LAD8
-        "74 ?? 48 8B ?? ?? 48 8D ?? ?? ?? 48 83 ?? ?? 45 33 ?? 41 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 33 ??"              // Judgment
-    };
-    
-    std::vector<std::uint8_t*> PressAnyKeyConfirmScanResults = Memory::MultiPatternScanAll(exeModule, PressAnyKeyConfirmPatterns);
-    if (!PressAnyKeyConfirmScanResults.empty())
-    {
-        spdlog::info("Intro Skip: Press Any Key Confirm: Found {} pattern match(es).", PressAnyKeyConfirmScanResults.size());
-        for (auto& PressAnyKeyConfirmScanResult : PressAnyKeyConfirmScanResults) 
+        // Press any key confirm
+        std::vector<const char*> PressAnyKeyConfirmPatterns = {
+            "74 ?? 48 8B ?? ?? 48 8D ?? ?? ?? 48 83 ?? ?? 41 ?? FF FF FF FF 41 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 33 ??",    // LAD7/LAD8
+            "74 ?? 48 8B ?? ?? 48 8D ?? ?? ?? 48 83 ?? ?? 41 ?? ?? ?? ?? ?? 44 ?? ?? ?? ?? ?? ??",                      // Pirate
+            "74 ?? 48 8B ?? ?? 48 8D ?? ?? ?? 48 83 ?? ?? 45 33 ?? 41 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 33 ??"              // Judgment
+        };
+        
+        std::vector<std::uint8_t*> PressAnyKeyConfirmScanResults = Memory::MultiPatternScanAll(exeModule, PressAnyKeyConfirmPatterns);
+        if (!PressAnyKeyConfirmScanResults.empty())
         {
-            // Skip pressing any key
-            spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyConfirmScanResult - (std::uint8_t*)exeModule);
-            Memory::PatchBytes(PressAnyKeyConfirmScanResult, "\x90\x90", 2);
+            spdlog::info("Intro Skip: Press Any Key Confirm: Found {} pattern match(es).", PressAnyKeyConfirmScanResults.size());
+            for (auto& PressAnyKeyConfirmScanResult : PressAnyKeyConfirmScanResults) 
+            {
+                // Skip pressing any key
+                spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyConfirmScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(PressAnyKeyConfirmScanResult, "\x90\x90", 2);
+            }
         }
-    }
-    else 
-    {
-        spdlog::error("Intro Skip: Press Any Key Confirm: Pattern scan(s) failed.");
+        else 
+        {
+            spdlog::error("Intro Skip: Press Any Key Confirm: Pattern scan(s) failed.");
+        }
     }
 }
 
