@@ -52,18 +52,18 @@ enum class Game
     Coyote,     // Lost Judgment
     Aston,      // Like a Dragon Gaiden: The Man Who Erased His Name
     Elvis,      // Like a Dragon: Infinite Wealth
-    Spr         // Like a Dragon: Pirate Yakuza in Hawaii
+    Sparrow     // Like a Dragon: Pirate Yakuza in Hawaii
 };
 
 const std::map<Game, GameInfo> kGames = {
-    {Game::OgreF,  {"Yakuza 6: The Song of Life", "Yakuza6.exe"}},
-    {Game::Lexus2, {"Yakuza Kiwami 2", "YakuzaKiwami2.exe"}},
-    {Game::Judge,  {"Judgment", "Judgment.exe"}},
-    {Game::Yazawa, {"Yakuza: Like a Dragon", "YakuzaLikeADragon.exe"}},
-    {Game::Coyote, {"Lost Judgment", "LostJudgment.exe"}},
-    {Game::Aston,  {"Like a Dragon Gaiden: The Man Who Erased His Name", "LikeADragonGaiden.exe"}},
-    {Game::Elvis,  {"Like a Dragon: Infinite Wealth", "LikeADragon8.exe"}},
-    {Game::Spr,    {"Like a Dragon: Pirate Yakuza in Hawaii", "LikeADragonPirates.exe"}},
+    {Game::OgreF,   {"Yakuza 6: The Song of Life", "Yakuza6.exe"}},
+    {Game::Lexus2,  {"Yakuza Kiwami 2", "YakuzaKiwami2.exe"}},
+    {Game::Judge,   {"Judgment", "Judgment.exe"}},
+    {Game::Yazawa,  {"Yakuza: Like a Dragon", "YakuzaLikeADragon.exe"}},
+    {Game::Coyote,  {"Lost Judgment", "LostJudgment.exe"}},
+    {Game::Aston,   {"Like a Dragon Gaiden: The Man Who Erased His Name", "LikeADragonGaiden.exe"}},
+    {Game::Elvis,   {"Like a Dragon: Infinite Wealth", "LikeADragon8.exe"}},
+    {Game::Sparrow, {"Like a Dragon: Pirate Yakuza in Hawaii", "LikeADragonPirates.exe"}},
 };
 
 const GameInfo* game = nullptr;
@@ -179,14 +179,36 @@ const std::string sYazawaTitleLogoID = "title_logo";
 
 void IntroSkip()
 {
+    if (eGameType == Game::Sparrow && bIntroSkip)
+    {
+        // Intro skip
+        std::uint8_t* IntroSkipScanResult = Memory::PatternScan(exeModule, "48 89 ?? ?? ?? ?? ?? 48 85 ?? 74 ?? 40 ?? ?? 75 ?? 48 89 ?? 8B ?? ?? ?? ?? ??");
+        if (IntroSkipScanResult)
+        {
+            spdlog::info("Intro Skip: Address: {:s}+0x{:x}", sExeName, IntroSkipScanResult - (std::uint8_t*)exeModule);
+            static SafetyHookMid IntroSkipMidHook{};
+            IntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult,
+                [](SafetyHookContext &ctx)
+                {
+                    LPSTR launchArgs = (LPSTR)ctx.rsi;
+                    static std::string sLaunchArgs = launchArgs;
+                    sLaunchArgs += " -skiplogo";
+                    ctx.rsi = reinterpret_cast<uintptr_t>(sLaunchArgs.c_str());
+                });
+        }
+        else
+        {
+            spdlog::error("Intro Skip: Pattern scan(s) failed.");
+        }
+    }
+
     if (eGameType == Game::Yazawa && bIntroSkip) 
     {
         // Intro skip
         std::uint8_t* CreateConfigSceneScanResult = Memory::PatternScan(exeModule, "8B ?? 4C ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? B9 ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8B ?? 48 85 ??");
-        std::uint8_t* PressAnyKeyDelayScanResult = Memory::PatternScan(exeModule, "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? C5 ?? ?? ?? ?? 48 83 ?? ?? 5B C3");
-        std::uint8_t* PressAnyKeyConfirmScanResult = Memory::PatternScan(exeModule, "74 ?? 48 8B ?? ?? 48 8D ?? ?? ?? 48 83 ?? ?? 41 ?? FF FF FF FF 41 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 33 ??");
-        if (CreateConfigSceneScanResult && PressAnyKeyDelayScanResult && PressAnyKeyConfirmScanResult)
+        if (CreateConfigSceneScanResult)
         {
+            // When we hit "title_logo", skip straight to the title screen by changing the id to "yazawa_title"
             spdlog::info("Intro Skip: Create Config Scene: Address: {:s}+0x{:x}", sExeName, CreateConfigSceneScanResult - (std::uint8_t*)exeModule);
             static SafetyHookMid CreateConfigSceneMidHook{};
             CreateConfigSceneMidHook = safetyhook::create_mid(CreateConfigSceneScanResult,
@@ -204,28 +226,55 @@ void IntroSkip()
                         }
                     }
                 });
-
-            // Remove delay on "press any key" appearing
-            spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyDelayScanResult - (std::uint8_t*)exeModule);
-            Memory::PatchBytes(PressAnyKeyDelayScanResult, "\x90\x90", 2);
-
-            spdlog::info("Intro Skip: Press Any Key Confirm: {:s}+0x{:x}", sExeName, PressAnyKeyConfirmScanResult - (std::uint8_t*)exeModule);
-            static SafetyHookMid PressAnyKeyConfirmMidHook{};
-            PressAnyKeyConfirmMidHook = safetyhook::create_mid(PressAnyKeyConfirmScanResult,
-                [](SafetyHookContext &ctx)
-                {
-                    if (!bHasSkippedIntro)
-                    {
-                        // Clear ZF
-                        ctx.rflags &= (0ULL << 6);
-                        bHasSkippedIntro = true;
-                    }
-                });
         }
         else
         {
             spdlog::error("Intro Skip: Pattern scan(s) failed.");
         }
+    }
+
+    // Press any key delay
+    std::vector<const char*> PressAnyKeyDelayPatterns = {
+        "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? C5 ?? ?? ?? ?? 48 83 ?? ?? 5B C3",    // LAD7/Judgment
+        "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? 10 ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? C5 ?? 11 ?? ??"     // LAD8
+    };
+
+    std::vector<std::uint8_t*> PressAnyKeyDelayScanResults = Memory::MultiPatternScanAll(exeModule, PressAnyKeyDelayPatterns);
+    if (!PressAnyKeyDelayScanResults.empty())
+    {
+        spdlog::info("Intro Skip: Press Any Key Delay: Found {} pattern match(es).", PressAnyKeyDelayScanResults.size());
+        for (auto& PressAnyKeyDelayScanResult : PressAnyKeyDelayScanResults) 
+        {
+            // Remove delay on "press any key" appearing
+            spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyDelayScanResult - (std::uint8_t*)exeModule);
+            Memory::PatchBytes(PressAnyKeyDelayScanResult, "\x90\x90", 2);
+        }
+    }
+    else 
+    {
+        spdlog::error("Intro Skip: Press Any Key Delay: Pattern scan(s) failed.");
+    }
+
+    // Press any key confirm
+    std::vector<const char*> PressAnyKeyConfirmPatterns = {
+        "74 ?? 48 8B ?? ?? 48 8D ?? ?? ?? 48 83 ?? ?? 41 ?? FF FF FF FF 41 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 33 ??",    // LAD7/LAD8
+        "74 ?? 48 8B ?? ?? 48 8D ?? ?? ?? 48 83 ?? ?? 45 33 ?? 41 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 33 ??"              // Judgment
+    };
+    
+    std::vector<std::uint8_t*> PressAnyKeyConfirmScanResults = Memory::MultiPatternScanAll(exeModule, PressAnyKeyConfirmPatterns);
+    if (!PressAnyKeyConfirmScanResults.empty())
+    {
+        spdlog::info("Intro Skip: Press Any Key Confirm: Found {} pattern match(es).", PressAnyKeyConfirmScanResults.size());
+        for (auto& PressAnyKeyConfirmScanResult : PressAnyKeyConfirmScanResults) 
+        {
+            // Skip pressing any key
+            spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyConfirmScanResult - (std::uint8_t*)exeModule);
+            Memory::PatchBytes(PressAnyKeyConfirmScanResult, "\x90\x90", 2);
+        }
+    }
+    else 
+    {
+        spdlog::error("Intro Skip: Press Any Key Confirm: Pattern scan(s) failed.");
     }
 }
 
@@ -313,6 +362,10 @@ void ShadowResolution()
     }
 }
 
+std::mutex mainThreadFinishedMutex;
+std::condition_variable mainThreadFinishedVar;
+bool mainThreadFinished = false;
+
 DWORD __stdcall Main(void*)
 {
     Logging();
@@ -325,7 +378,33 @@ DWORD __stdcall Main(void*)
         ShadowResolution();
     }
 
+    {
+        std::lock_guard lock(mainThreadFinishedMutex);
+        mainThreadFinished = true;
+        mainThreadFinishedVar.notify_all();
+    }
+
     return true;
+}
+
+std::mutex getCommandLineMutex;
+bool getCommandLineHookCalled = false;
+LPWSTR(WINAPI* GetCommandLineW_Fn)();
+
+LPWSTR WINAPI GetCommandLineW_Hook()
+{
+    std::lock_guard lock(getCommandLineMutex);
+    if (!getCommandLineHookCalled)
+    {
+        getCommandLineHookCalled = true;
+        Memory::HookIAT(exeModule, "kernel32.dll", GetCommandLineW_Hook, GetCommandLineW_Fn);
+        if (!mainThreadFinished)
+        {
+            std::unique_lock finishedLock(mainThreadFinishedMutex);
+            mainThreadFinishedVar.wait(finishedLock, [] { return mainThreadFinished; });
+        }
+    }
+    return GetCommandLineW_Fn();
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
@@ -335,6 +414,15 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     case DLL_PROCESS_ATTACH:
     {
         thisModule = hModule;
+        HMODULE kernel32 = GetModuleHandleA("kernel32.dll");
+        if (kernel32)
+        {
+            GetCommandLineW_Fn = reinterpret_cast<decltype(GetCommandLineW_Fn)>(GetProcAddress(kernel32, "GetCommandLineW"));
+            if (GetCommandLineW_Fn)
+            {
+                Memory::HookIAT(exeModule, "kernel32.dll", GetCommandLineW_Fn, GetCommandLineW_Hook);
+            }
+        }
 
         HANDLE mainHandle = CreateThread(NULL, 0, Main, 0, NULL, 0);
         if (mainHandle)
