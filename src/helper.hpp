@@ -67,6 +67,17 @@ namespace Memory
         return nullptr;
     }
 
+    std::uint8_t* MultiPatternScan(void* module, const std::vector<const char*>& signatures) 
+    { 
+        for (const auto& signature : signatures) 
+        {
+            std::uint8_t* result = PatternScan(module, signature);
+            if (result)
+                return result;
+        }
+        return nullptr;
+    }
+
     std::vector<std::uint8_t*> PatternScanAll(void* module, const char* signature)
     {
         auto dosHeader = (PIMAGE_DOS_HEADER)module;
