@@ -179,7 +179,7 @@ const std::string sYazawaTitleLogoID = "title_logo";
 
 void IntroSkip()
 {
-    if (eGameType == Game::Sparrow && bIntroSkip)
+    if ((eGameType == Game::Elvis || eGameType == Game::Sparrow) && bIntroSkip)
     {
         // Intro skip
         std::uint8_t* IntroSkipScanResult = Memory::PatternScan(exeModule, "4C ?? ?? ?? 41 ?? 01 00 00 00 48 8B ?? ?? 4C ?? ?? E8 ?? ?? ?? ??");
@@ -187,12 +187,14 @@ void IntroSkip()
         {
             spdlog::info("Intro Skip: Address: {:s}+0x{:x}", sExeName, IntroSkipScanResult - (std::uint8_t*)exeModule);
             static SafetyHookMid aIntroSkipMidHook{};
-            aIntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult,
+            aIntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult - 0xA,
                 [](SafetyHookContext &ctx)
                 {
-                    int iLaunchArg = *reinterpret_cast<int*>(ctx.rbp + 0x40);
-                    if (iLaunchArg == 2)
-                        *reinterpret_cast<int*>(ctx.rbp + 0x40) = 3;
+                    spdlog::info("Intro Skip: Skipping intro logos.");
+                    LPSTR launchArgs = (LPSTR)ctx.rsi;
+                    static std::string sLaunchArgs = launchArgs;
+                    sLaunchArgs += " -skiplogo";
+                    ctx.rsi = reinterpret_cast<uintptr_t>(sLaunchArgs.c_str());
                 });
         }
         else
@@ -384,6 +386,10 @@ void ShadowResolution()
     }
 }
 
+std::mutex mainThreadFinishedMutex;
+std::condition_variable mainThreadFinishedVar;
+bool mainThreadFinished = false;
+
 DWORD __stdcall Main(void*)
 {
     Logging();
@@ -395,7 +401,32 @@ DWORD __stdcall Main(void*)
         ShadowResolution();
     }
 
+    {
+        std::lock_guard lock(mainThreadFinishedMutex);
+        mainThreadFinished = true;
+        mainThreadFinishedVar.notify_all();
+    }
+
     return true;
+}
+
+std::mutex getCommandLineMutex;
+bool getCommandLineHookCalled = false;
+LPWSTR(WINAPI* GetCommandLineW_Fn)();
+LPWSTR WINAPI GetCommandLineW_Hook()
+{
+    std::lock_guard lock(getCommandLineMutex);
+    if (!getCommandLineHookCalled)
+    {
+        getCommandLineHookCalled = true;
+        Memory::HookIAT(exeModule, "kernel32.dll", GetCommandLineW_Hook, GetCommandLineW_Fn);
+        if (!mainThreadFinished)
+        {
+            std::unique_lock finishedLock(mainThreadFinishedMutex);
+            mainThreadFinishedVar.wait(finishedLock, [] { return mainThreadFinished; });
+        }
+    }
+    return GetCommandLineW_Fn();
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
@@ -405,6 +436,16 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     case DLL_PROCESS_ATTACH:
     {
         thisModule = hModule;
+        HMODULE kernel32 = GetModuleHandleA("kernel32.dll");
+        if (kernel32)
+        {
+            GetCommandLineW_Fn = reinterpret_cast<decltype(GetCommandLineW_Fn)>(GetProcAddress(kernel32, "GetCommandLineW"));
+            if (GetCommandLineW_Fn)
+            {
+                Memory::HookIAT(exeModule, "kernel32.dll", GetCommandLineW_Fn, GetCommandLineW_Hook);
+            }
+        }
+
         HANDLE mainHandle = CreateThread(NULL, 0, Main, 0, NULL, 0);
         if (mainHandle)
         {
