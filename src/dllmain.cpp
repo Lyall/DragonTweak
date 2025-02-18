@@ -175,11 +175,14 @@ bool DetectGame()
 }
 
 bool bHasSkippedIntro = false;
-const std::string sYazawaTitleLogoID = "title_logo";
+const std::string sYazawaSkipID = "title_logo";
+const std::string sCoyoteSkipID = "title_photosensitive";
+const std::string sAstonSkipID  = "title_photosensitive";
+const std::string sJudgeSkipID  = "judge_photosensitive";
 
 void IntroSkip()
 {
-    if ((eGameType == Game::Elvis || eGameType == Game::Sparrow) && bIntroSkip)
+    if (bIntroSkip && (eGameType == Game::Elvis || eGameType == Game::Sparrow))
     {
         // Intro skip
         std::uint8_t* IntroSkipScanResult = Memory::PatternScan(exeModule, "4C ?? ?? ?? 41 ?? 01 00 00 00 48 8B ?? ?? 4C ?? ?? E8 ?? ?? ?? ??");
@@ -203,28 +206,59 @@ void IntroSkip()
         }
     }
 
-    if (eGameType == Game::Yazawa && bIntroSkip) 
+    if (bIntroSkip && (eGameType != Game::Elvis || eGameType != Game::Sparrow)) 
     {
-        // Intro skip
-        std::uint8_t* CreateConfigSceneScanResult = Memory::PatternScan(exeModule, "8B ?? 4C ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? B9 ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8B ?? 48 85 ??");
+        // create_config_scene
+        std::vector<const char*> CreateConfigScenePatterns = {
+            "49 8B ?? 8B ?? 4C 8B ?? 8B ?? E8 ?? ?? ?? ?? 84 ?? 75 ?? 33 ?? 41 ?? ?? E9 ?? ?? ?? ??",            // Lost Judgment/Gaiden
+            "8B ?? 4C ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? B9 ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8B ?? 48 85 ??"             // LAD7/Judgment
+        };
+
+        std::uint8_t* CreateConfigSceneScanResult = Memory::MultiPatternScan(exeModule, CreateConfigScenePatterns);
         if (CreateConfigSceneScanResult)
         {
-            // When we hit "title_logo", skip straight to the title screen by changing the id to "yazawa_title"
             spdlog::info("Intro Skip: Create Config Scene: Address: {:s}+0x{:x}", sExeName, CreateConfigSceneScanResult - (std::uint8_t*)exeModule);
             static SafetyHookMid CreateConfigSceneMidHook{};
             CreateConfigSceneMidHook = safetyhook::create_mid(CreateConfigSceneScanResult,
                 [](SafetyHookContext &ctx)
                 {
-                    if (!bHasSkippedIntro)
+                    if (ctx.rbx && ctx.r8 && !bHasSkippedIntro)
                     {
                         std::string sSceneID = *reinterpret_cast<char**>(ctx.rbx + 0x10);
-                        spdlog::info("Intro Skip: Scene ID = {}", sSceneID);
-
-                        if (Util::string_cmp_caseless(sSceneID, sYazawaTitleLogoID))
+                        int iStageID = *reinterpret_cast<int*>(ctx.r8 + 0x4);
+                        spdlog::info("Intro Skip: Scene ID = {} (0x{:x}) | Stage: {:x}", sSceneID, ctx.rdx, iStageID);
+                        
+                        // Lost Judgment
+                        if (eGameType == Game::Coyote && Util::string_cmp_caseless(sSceneID, sCoyoteSkipID))
                         {
-                            // Set ID to "yazawa_title"
-                            ctx.rdx = 0x2096;
+                            ctx.rdx = 0x10D4; // Set to coyote_title
+                            *reinterpret_cast<int*>(ctx.r8 + 0x4) = 0xF4; // Stage change!
+                            bHasSkippedIntro = true;
                         }
+                        
+                        // Yakuza: Like a Dragon
+                        if (eGameType == Game::Yazawa && Util::string_cmp_caseless(sSceneID, sYazawaSkipID)) 
+                        {
+                            ctx.rdx = 0x2096; // Set ID to "yazawa_title"
+                            bHasSkippedIntro = true;
+                        }
+
+                        // Like a Dragon: Gaiden
+                        if (eGameType == Game::Aston && Util::string_cmp_caseless(sSceneID, sAstonSkipID)) 
+                        {
+                            ctx.rdx = 0x177; // Set id to "aston_title"
+                            *reinterpret_cast<int*>(ctx.r8 + 0x4) = 0xF4; // Stage change!
+                            bHasSkippedIntro = true;
+                        } 
+                        
+                        // Judgment
+                        if (eGameType == Game::Judge && Util::string_cmp_caseless(sSceneID, sJudgeSkipID)) 
+                        {
+                            ctx.rdx = 0xC88; // Set id to "judge_title"
+                            bHasSkippedIntro = true;
+                        }
+
+                        bHasSkippedIntro = true;
                     }
                 });
         }
@@ -257,29 +291,6 @@ void IntroSkip()
         else 
         {
             spdlog::error("Intro Skip: Press Any Key Delay: Pattern scan(s) failed.");
-        }
-
-        // Press any key confirm
-        std::vector<const char*> PressAnyKeyConfirmPatterns = {
-            "74 ?? 48 8B ?? ?? 48 8D ?? ?? ?? 48 83 ?? ?? 41 ?? FF FF FF FF 41 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 33 ??",    // LAD7/LAD8
-            "74 ?? 48 8B ?? ?? 48 8D ?? ?? ?? 48 83 ?? ?? 41 ?? ?? ?? ?? ?? 44 ?? ?? ?? ?? ?? ??",                      // Pirate
-            "74 ?? 48 8B ?? ?? 48 8D ?? ?? ?? 48 83 ?? ?? 45 33 ?? 41 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 33 ??"              // Judgment
-        };
-        
-        std::vector<std::uint8_t*> PressAnyKeyConfirmScanResults = Memory::MultiPatternScanAll(exeModule, PressAnyKeyConfirmPatterns);
-        if (!PressAnyKeyConfirmScanResults.empty())
-        {
-            spdlog::info("Intro Skip: Press Any Key Confirm: Found {} pattern match(es).", PressAnyKeyConfirmScanResults.size());
-            for (auto& PressAnyKeyConfirmScanResult : PressAnyKeyConfirmScanResults) 
-            {
-                // Skip pressing any key
-                spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyConfirmScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(PressAnyKeyConfirmScanResult, "\x90\x90", 2);
-            }
-        }
-        else 
-        {
-            spdlog::error("Intro Skip: Press Any Key Confirm: Pattern scan(s) failed.");
         }
     }
 }
