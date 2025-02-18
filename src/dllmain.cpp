@@ -175,6 +175,10 @@ bool DetectGame()
 }
 
 bool bHasSkippedIntro = false;
+std::string sSceneID;
+int iStageID;
+const std::string sLexus2SkipID = "lexus2_logo";
+const std::string sOgreFSkipID  = "title_logo";
 const std::string sYazawaSkipID = "title_logo";
 const std::string sCoyoteSkipID = "title_photosensitive";
 const std::string sAstonSkipID  = "title_photosensitive";
@@ -206,12 +210,13 @@ void IntroSkip()
         }
     }
 
-    if (bIntroSkip && (eGameType != Game::Elvis || eGameType != Game::Sparrow)) 
+    if (bIntroSkip && eGameType != Game::Elvis && eGameType != Game::Sparrow) 
     {
         // create_config_scene
         std::vector<const char*> CreateConfigScenePatterns = {
-            "49 8B ?? 8B ?? 4C 8B ?? 8B ?? E8 ?? ?? ?? ?? 84 ?? 75 ?? 33 ?? 41 ?? ?? E9 ?? ?? ?? ??",            // Lost Judgment/Gaiden
-            "8B ?? 4C ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? B9 ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8B ?? 48 85 ??"             // LAD7/Judgment
+            "?? 8B ?? 8B ?? 4C 8B ?? 8B ?? E8 ?? ?? ?? ?? 84 C0 75 ?? 45 33 ?? 45 89 ?? ?? E9 ?? ?? ?? ?? B9 ?? ?? ?? ?? E8 ?? ?? ?? ??",   // Yakuza 6/Kiwami 2
+            "49 8B ?? 8B ?? 4C 8B ?? 8B ?? E8 ?? ?? ?? ?? 84 ?? 75 ?? 33 ?? 41 ?? ?? E9 ?? ?? ?? ??",                                       // Lost Judgment/Gaiden
+            "8B ?? 4C ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? B9 ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8B ?? 48 85 ??"                                        // LAD7/Judgment
         };
 
         std::uint8_t* CreateConfigSceneScanResult = Memory::MultiPatternScan(exeModule, CreateConfigScenePatterns);
@@ -222,10 +227,16 @@ void IntroSkip()
             CreateConfigSceneMidHook = safetyhook::create_mid(CreateConfigSceneScanResult,
                 [](SafetyHookContext &ctx)
                 {
-                    if (ctx.rbx && ctx.r8 && !bHasSkippedIntro)
+                    if (ctx.rbx && ctx.r8 && ctx.rdi && !bHasSkippedIntro)
                     {
-                        std::string sSceneID = *reinterpret_cast<char**>(ctx.rbx + 0x10);
-                        int iStageID = *reinterpret_cast<int*>(ctx.r8 + 0x4);
+                        if (eGameType == Game::OgreF )
+                            sSceneID = *reinterpret_cast<char**>(ctx.rdi + 0x10);
+                        else if (eGameType == Game::Lexus2)
+                            sSceneID = *reinterpret_cast<char**>(ctx.rbx + 0x08);
+                        else
+                            sSceneID = *reinterpret_cast<char**>(ctx.rbx + 0x10);
+
+                        iStageID = *reinterpret_cast<int*>(ctx.r8 + 0x4);                      
                         spdlog::info("Intro Skip: Scene ID = {} (0x{:x}) | Stage: {:x}", sSceneID, ctx.rdx, iStageID);
                         
                         // Lost Judgment
@@ -258,6 +269,20 @@ void IntroSkip()
                             bHasSkippedIntro = true;
                         }
 
+                        // Yakuza 6
+                        if (eGameType == Game::OgreF && Util::string_cmp_caseless(sSceneID, sOgreFSkipID)) 
+                        {
+                            ctx.rdx = 0x62E; // Set id to "title"
+                            bHasSkippedIntro = true;
+                        }
+
+                        // Yakuza Kiwami 2
+                        if (eGameType == Game::Lexus2 && Util::string_cmp_caseless(sSceneID, sLexus2SkipID)) 
+                        {
+                            ctx.rdx = 0xE10; // Set id to "lexus2_title"
+                            bHasSkippedIntro = true;
+                        } 
+
                         bHasSkippedIntro = true;
                     }
                 });
@@ -268,25 +293,26 @@ void IntroSkip()
         }
     }
 
-    if (eGameType == Game::Yazawa || eGameType == Game::Judge || eGameType == Game::Elvis || eGameType == Game::Sparrow) 
+    if (eGameType != Game::Aston && eGameType != Game::Coyote) 
     {
         // Press any key delay
         std::vector<const char*> PressAnyKeyDelayPatterns = {
-            "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? C5 ?? ?? ?? ?? 48 83 ?? ?? 5B C3",            // LAD7/Judgment
-            "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? 10 ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? C5 ?? 11 ?? ??",            // LAD8
-            "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? C5 ?? ?? ?? 48 8B ?? ?? ?? 48 83 ?? ?? ?? C3"    // Pirate
+            "84 C0 74 ?? C5 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? 72 ?? 48 8B ?? ?? 48 85 ?? 74 ?? 48 C7 ?? ?? 00 00 00 00 BA 01 00 00 00",   // Yakuza 6
+            "72 ?? 45 33 ?? 48 8B ?? 41 ?? ?? ?? E8 ?? ?? ?? ?? F3 0F ?? ?? ?? ?? ?? ?? F3 0F ?? ?? ?? F3 0F ?? ?? ?? 48 83 ?? ?? 5B C3",   // Kiwami 2
+            "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? C5 ?? ?? ?? ?? 48 83 ?? ?? 5B C3",                        // LAD7/Judgment
+            "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? 10 ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? C5 ?? 11 ?? ??",                        // LAD8
+            "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? C5 ?? ?? ?? 48 8B ?? ?? ?? 48 83 ?? ?? ?? C3"                // Pirate
         };
 
-        std::vector<std::uint8_t*> PressAnyKeyDelayScanResults = Memory::MultiPatternScanAll(exeModule, PressAnyKeyDelayPatterns);
-        if (!PressAnyKeyDelayScanResults.empty())
+        std::uint8_t* PressAnyKeyDelayScanResult = Memory::MultiPatternScan(exeModule, PressAnyKeyDelayPatterns);
+        if (PressAnyKeyDelayScanResult)
         {
-            spdlog::info("Intro Skip: Press Any Key Delay: Found {} pattern match(es).", PressAnyKeyDelayScanResults.size());
-            for (auto& PressAnyKeyDelayScanResult : PressAnyKeyDelayScanResults) 
-            {
-                // Remove delay on "press any key" appearing
-                spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyDelayScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(PressAnyKeyDelayScanResult, "\x90\x90", 2);
-            }
+            // Remove delay on "press any key" appearing
+            spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyDelayScanResult - (std::uint8_t*)exeModule);
+            if (eGameType == Game::OgreF)
+                Memory::PatchBytes(PressAnyKeyDelayScanResult + 0x11, "\x90\x90", 2);
+            else
+                Memory::PatchBytes(PressAnyKeyDelayScanResult, "\x90\x90", 2); 
         }
         else 
         {
