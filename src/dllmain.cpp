@@ -30,6 +30,7 @@ std::string sExeName;
 bool bIntroSkip;
 int iShadowResolution;
 bool bDisablePillarboxing;
+bool bGlobalDisablePillarboxing;
 
 // Variables
 int iCurrentResX;
@@ -142,6 +143,7 @@ void Configuration()
     inipp::get_value(ini.sections["Intro Skip"], "Enabled", bIntroSkip);
     inipp::get_value(ini.sections["Shadow Quality"], "Resolution", iShadowResolution);
     inipp::get_value(ini.sections["Disable Pillarboxing"], "Enabled", bDisablePillarboxing);
+    inipp::get_value(ini.sections["Disable Pillarboxing"], "Global", bGlobalDisablePillarboxing);
 
     // Clamp settings
     iShadowResolution = std::clamp(iShadowResolution, 64, 8192);
@@ -150,6 +152,7 @@ void Configuration()
     spdlog_confparse(bIntroSkip);
     spdlog_confparse(iShadowResolution);
     spdlog_confparse(bDisablePillarboxing);
+    spdlog_confparse(bGlobalDisablePillarboxing);
 
     spdlog::info("----------");
 }
@@ -186,241 +189,284 @@ const std::string sJudgeSkipID  = "judge_photosensitive";
 
 void IntroSkip()
 {
-    if (bIntroSkip && (eGameType == Game::Elvis || eGameType == Game::Sparrow))
+    if (bIntroSkip)
     {
-        // Intro skip
-        std::uint8_t* IntroSkipScanResult = Memory::PatternScan(exeModule, "4C ?? ?? ?? 41 ?? 01 00 00 00 48 8B ?? ?? 4C ?? ?? E8 ?? ?? ?? ??");
-        if (IntroSkipScanResult)
+        if (eGameType == Game::Elvis || eGameType == Game::Sparrow)
         {
-            spdlog::info("Intro Skip: Address: {:s}+0x{:x}", sExeName, IntroSkipScanResult - (std::uint8_t*)exeModule);
-            static SafetyHookMid aIntroSkipMidHook{};
-            aIntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult - 0xA,
-                [](SafetyHookContext &ctx)
-                {
-                    spdlog::info("Intro Skip: Skipping intro logos.");
-                    LPSTR launchArgs = (LPSTR)ctx.rsi;
-                    static std::string sLaunchArgs = launchArgs;
-                    sLaunchArgs += " -skiplogo";
-                    ctx.rsi = reinterpret_cast<uintptr_t>(sLaunchArgs.c_str());
-                });
-        }
-        else
-        {
-            spdlog::error("Intro Skip: Pattern scan(s) failed.");
-        }
-    }
-
-    if (bIntroSkip && eGameType != Game::Elvis && eGameType != Game::Sparrow) 
-    {
-        // create_config_scene
-        std::vector<const char*> CreateConfigScenePatterns = {
-            "?? 8B ?? 8B ?? 4C 8B ?? 8B ?? E8 ?? ?? ?? ?? 84 C0 75 ?? 45 33 ?? 45 89 ?? ?? E9 ?? ?? ?? ?? B9 ?? ?? ?? ?? E8 ?? ?? ?? ??",   // Yakuza 6/Kiwami 2
-            "49 8B ?? 8B ?? 4C 8B ?? 8B ?? E8 ?? ?? ?? ?? 84 ?? 75 ?? 33 ?? 41 ?? ?? E9 ?? ?? ?? ??",                                       // Lost Judgment/Gaiden
-            "8B ?? 4C ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? B9 ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8B ?? 48 85 ??"                                        // LAD7/Judgment
-        };
-
-        std::uint8_t* CreateConfigSceneScanResult = Memory::MultiPatternScan(exeModule, CreateConfigScenePatterns);
-        if (CreateConfigSceneScanResult)
-        {
-            spdlog::info("Intro Skip: Create Config Scene: Address: {:s}+0x{:x}", sExeName, CreateConfigSceneScanResult - (std::uint8_t*)exeModule);
-            static SafetyHookMid CreateConfigSceneMidHook{};
-            CreateConfigSceneMidHook = safetyhook::create_mid(CreateConfigSceneScanResult,
-                [](SafetyHookContext &ctx)
-                {
-                    if (ctx.rbx && ctx.r8 && ctx.rdi && !bHasSkippedIntro)
+            // Intro skip
+            std::uint8_t* IntroSkipScanResult = Memory::PatternScan(exeModule, "4C ?? ?? ?? 41 ?? 01 00 00 00 48 8B ?? ?? 4C ?? ?? E8 ?? ?? ?? ??");
+            if (IntroSkipScanResult)
+            {
+                spdlog::info("Intro Skip: Address: {:s}+0x{:x}", sExeName, IntroSkipScanResult - (std::uint8_t*)exeModule);
+                static SafetyHookMid aIntroSkipMidHook{};
+                aIntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult - 0xA,
+                    [](SafetyHookContext &ctx)
                     {
-                        if (eGameType == Game::OgreF )
-                            sSceneID = *reinterpret_cast<char**>(ctx.rdi + 0x10);
-                        else if (eGameType == Game::Lexus2)
-                            sSceneID = *reinterpret_cast<char**>(ctx.rbx + 0x08);
-                        else
-                            sSceneID = *reinterpret_cast<char**>(ctx.rbx + 0x10);
-
-                        iStageID = *reinterpret_cast<int*>(ctx.r8 + 0x4);                      
-                        spdlog::info("Intro Skip: Scene ID = {} (0x{:x}) | Stage: {:x}", sSceneID, ctx.rdx, iStageID);
-                        
-                        // Lost Judgment
-                        if (eGameType == Game::Coyote && Util::string_cmp_caseless(sSceneID, sCoyoteSkipID))
-                        {
-                            ctx.rdx = 0x10D4; // Set to coyote_title
-                            *reinterpret_cast<int*>(ctx.r8 + 0x4) = 0xF4; // Stage change!
-                            bHasSkippedIntro = true;
-                        }
-                        
-                        // Yakuza: Like a Dragon
-                        if (eGameType == Game::Yazawa && Util::string_cmp_caseless(sSceneID, sYazawaSkipID)) 
-                        {
-                            ctx.rdx = 0x2096; // Set ID to "yazawa_title"
-                            bHasSkippedIntro = true;
-                        }
-
-                        // Like a Dragon: Gaiden
-                        if (eGameType == Game::Aston && Util::string_cmp_caseless(sSceneID, sAstonSkipID)) 
-                        {
-                            ctx.rdx = 0x177; // Set id to "aston_title"
-                            *reinterpret_cast<int*>(ctx.r8 + 0x4) = 0xF4; // Stage change!
-                            bHasSkippedIntro = true;
-                        } 
-                        
-                        // Judgment
-                        if (eGameType == Game::Judge && Util::string_cmp_caseless(sSceneID, sJudgeSkipID)) 
-                        {
-                            ctx.rdx = 0xC88; // Set id to "judge_title"
-                            bHasSkippedIntro = true;
-                        }
-
-                        // Yakuza 6
-                        if (eGameType == Game::OgreF && Util::string_cmp_caseless(sSceneID, sOgreFSkipID)) 
-                        {
-                            ctx.rdx = 0x62E; // Set id to "title"
-                            bHasSkippedIntro = true;
-                        }
-
-                        // Yakuza Kiwami 2
-                        if (eGameType == Game::Lexus2 && Util::string_cmp_caseless(sSceneID, sLexus2SkipID)) 
-                        {
-                            ctx.rdx = 0xE10; // Set id to "lexus2_title"
-                            bHasSkippedIntro = true;
-                        } 
-
-                        bHasSkippedIntro = true;
-                    }
-                });
-        }
-        else
-        {
-            spdlog::error("Intro Skip: Pattern scan(s) failed.");
-        }
-    }
-
-    if (eGameType != Game::Aston && eGameType != Game::Coyote) 
-    {
-        // Press any key delay
-        std::vector<const char*> PressAnyKeyDelayPatterns = {
-            "84 C0 74 ?? C5 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? 72 ?? 48 8B ?? ?? 48 85 ?? 74 ?? 48 C7 ?? ?? 00 00 00 00 BA 01 00 00 00",   // Yakuza 6
-            "72 ?? 45 33 ?? 48 8B ?? 41 ?? ?? ?? E8 ?? ?? ?? ?? F3 0F ?? ?? ?? ?? ?? ?? F3 0F ?? ?? ?? F3 0F ?? ?? ?? 48 83 ?? ?? 5B C3",   // Kiwami 2
-            "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? C5 ?? ?? ?? ?? 48 83 ?? ?? 5B C3",                        // LAD7/Judgment
-            "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? 10 ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? C5 ?? 11 ?? ??",                        // LAD8
-            "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? C5 ?? ?? ?? 48 8B ?? ?? ?? 48 83 ?? ?? ?? C3"                // Pirate
-        };
-
-        std::uint8_t* PressAnyKeyDelayScanResult = Memory::MultiPatternScan(exeModule, PressAnyKeyDelayPatterns);
-        if (PressAnyKeyDelayScanResult)
-        {
-            // Remove delay on "press any key" appearing
-            spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyDelayScanResult - (std::uint8_t*)exeModule);
-            if (eGameType == Game::OgreF)
-                Memory::PatchBytes(PressAnyKeyDelayScanResult + 0x11, "\x90\x90", 2);
+                        spdlog::info("Intro Skip: Skipping intro logos.");
+                        LPSTR launchArgs = (LPSTR)ctx.rsi;
+                        static std::string sLaunchArgs = launchArgs;
+                        sLaunchArgs += " -skiplogo";
+                        ctx.rsi = reinterpret_cast<uintptr_t>(sLaunchArgs.c_str());
+                    });
+            }
             else
-                Memory::PatchBytes(PressAnyKeyDelayScanResult, "\x90\x90", 2); 
+            {
+                spdlog::error("Intro Skip: Pattern scan(s) failed.");
+            }
         }
-        else 
+    
+        if (eGameType != Game::Elvis && eGameType != Game::Sparrow) 
         {
-            spdlog::error("Intro Skip: Press Any Key Delay: Pattern scan(s) failed.");
+            // create_config_scene
+            std::vector<const char*> CreateConfigScenePatterns = {
+                "?? 8B ?? 8B ?? 4C 8B ?? 8B ?? E8 ?? ?? ?? ?? 84 C0 75 ?? 45 33 ?? 45 89 ?? ?? E9 ?? ?? ?? ?? B9 ?? ?? ?? ?? E8 ?? ?? ?? ??",   // Yakuza 6/Kiwami 2
+                "49 8B ?? 8B ?? 4C 8B ?? 8B ?? E8 ?? ?? ?? ?? 84 ?? 75 ?? 33 ?? 41 ?? ?? E9 ?? ?? ?? ??",                                       // Lost Judgment/Gaiden
+                "8B ?? 4C ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? B9 ?? ?? 00 00 E8 ?? ?? ?? ?? 48 8B ?? 48 85 ??"                                        // LAD7/Judgment
+            };
+    
+            std::uint8_t* CreateConfigSceneScanResult = Memory::MultiPatternScan(exeModule, CreateConfigScenePatterns);
+            if (CreateConfigSceneScanResult)
+            {
+                spdlog::info("Intro Skip: Create Config Scene: Address: {:s}+0x{:x}", sExeName, CreateConfigSceneScanResult - (std::uint8_t*)exeModule);
+                static SafetyHookMid CreateConfigSceneMidHook{};
+                CreateConfigSceneMidHook = safetyhook::create_mid(CreateConfigSceneScanResult,
+                    [](SafetyHookContext &ctx)
+                    {
+                        if (ctx.rbx && ctx.r8 && ctx.rdi && !bHasSkippedIntro)
+                        {
+                            if (eGameType == Game::OgreF )
+                                sSceneID = *reinterpret_cast<char**>(ctx.rdi + 0x10);
+                            else if (eGameType == Game::Lexus2)
+                                sSceneID = *reinterpret_cast<char**>(ctx.rbx + 0x08);
+                            else
+                                sSceneID = *reinterpret_cast<char**>(ctx.rbx + 0x10);
+    
+                            iStageID = *reinterpret_cast<int*>(ctx.r8 + 0x4);                      
+                            spdlog::info("Intro Skip: Scene ID = {} (0x{:x}) | Stage: {:x}", sSceneID, ctx.rdx, iStageID);
+                            
+                            // Lost Judgment
+                            if (eGameType == Game::Coyote && Util::string_cmp_caseless(sSceneID, sCoyoteSkipID))
+                            {
+                                ctx.rdx = 0x10D4; // Set to coyote_title
+                                *reinterpret_cast<int*>(ctx.r8 + 0x4) = 0xF4; // Stage change!
+                                bHasSkippedIntro = true;
+                            }
+                            
+                            // Yakuza: Like a Dragon
+                            if (eGameType == Game::Yazawa && Util::string_cmp_caseless(sSceneID, sYazawaSkipID)) 
+                            {
+                                ctx.rdx = 0x2096; // Set ID to "yazawa_title"
+                                bHasSkippedIntro = true;
+                            }
+    
+                            // Like a Dragon: Gaiden
+                            if (eGameType == Game::Aston && Util::string_cmp_caseless(sSceneID, sAstonSkipID)) 
+                            {
+                                ctx.rdx = 0x177; // Set id to "aston_title"
+                                *reinterpret_cast<int*>(ctx.r8 + 0x4) = 0xF4; // Stage change!
+                                bHasSkippedIntro = true;
+                            } 
+                            
+                            // Judgment
+                            if (eGameType == Game::Judge && Util::string_cmp_caseless(sSceneID, sJudgeSkipID)) 
+                            {
+                                ctx.rdx = 0xC88; // Set id to "judge_title"
+                                bHasSkippedIntro = true;
+                            }
+    
+                            // Yakuza 6
+                            if (eGameType == Game::OgreF && Util::string_cmp_caseless(sSceneID, sOgreFSkipID)) 
+                            {
+                                ctx.rdx = 0x62E; // Set id to "title"
+                                bHasSkippedIntro = true;
+                            }
+    
+                            // Yakuza Kiwami 2
+                            if (eGameType == Game::Lexus2 && Util::string_cmp_caseless(sSceneID, sLexus2SkipID)) 
+                            {
+                                ctx.rdx = 0xE10; // Set id to "lexus2_title"
+                                bHasSkippedIntro = true;
+                            } 
+    
+                            bHasSkippedIntro = true;
+                        }
+                    });
+            }
+            else
+            {
+                spdlog::error("Intro Skip: Pattern scan(s) failed.");
+            }
+        }
+    
+        if (eGameType != Game::Aston && eGameType != Game::Coyote) 
+        {
+            // Press any key delay
+            std::vector<const char*> PressAnyKeyDelayPatterns = {
+                "84 C0 74 ?? C5 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? 72 ?? 48 8B ?? ?? 48 85 ?? 74 ?? 48 C7 ?? ?? 00 00 00 00 BA 01 00 00 00",   // Yakuza 6
+                "72 ?? 45 33 ?? 48 8B ?? 41 ?? ?? ?? E8 ?? ?? ?? ?? F3 0F ?? ?? ?? ?? ?? ?? F3 0F ?? ?? ?? F3 0F ?? ?? ?? 48 83 ?? ?? 5B C3",   // Kiwami 2
+                "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? C5 ?? ?? ?? ?? 48 83 ?? ?? 5B C3",                        // LAD7/Judgment
+                "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? 10 ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? C5 ?? 11 ?? ??",                        // LAD8
+                "72 ?? 48 8B ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? C5 ?? ?? ?? 48 8B ?? ?? ?? 48 83 ?? ?? ?? C3"                // Pirate
+            };
+    
+            std::uint8_t* PressAnyKeyDelayScanResult = Memory::MultiPatternScan(exeModule, PressAnyKeyDelayPatterns);
+            if (PressAnyKeyDelayScanResult)
+            {
+                // Remove delay on "press any key" appearing
+                spdlog::info("Intro Skip: Press Any Key Delay: {:s}+0x{:x}", sExeName, PressAnyKeyDelayScanResult - (std::uint8_t*)exeModule);
+                if (eGameType == Game::OgreF)
+                    Memory::PatchBytes(PressAnyKeyDelayScanResult + 0x11, "\x90\x90", 2);
+                else
+                    Memory::PatchBytes(PressAnyKeyDelayScanResult, "\x90\x90", 2); 
+            }
+            else 
+            {
+                spdlog::error("Intro Skip: Press Any Key Delay: Pattern scan(s) failed.");
+            }
         }
     }
 }
 
 void DisablePillarboxing()
 {
-    // job_draw_bars() patterns
-    std::vector<const char*> DrawBarsPatterns = {
-        "40 ?? ?? 41 ?? 48 8D ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? B9 ?? ?? ?? ??",                                                           // Pirate/LAD8
-        "40 ?? 56 57 41 ?? 41 ?? 48 8D ?? ?? ?? ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 45 33 ?? BE ?? ?? ?? ??",  // Gaiden
-        "40 ?? 48 8D ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? B9 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0",                                               // LAD7/Judgment
-        "48 89 ?? ?? ?? 55 56 57 48 8D ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? E8 ?? ?? ?? ?? 3B ?? ?? ?? ?? ?? 0F 83 ?? ?? ?? ??",                                               // Kiwami2
-        "40 ?? ?? 41 ?? 41 ?? 41 ?? 48 83 ?? ?? 48 C7 ?? ?? ?? ?? ?? ?? ?? 48 89 ?? ?? ?? 48 89 ?? ?? ?? ?? ?? ?? 4C ?? ?? B9 08 00 00 00",                                      // Yakuza 6
-        "40 ?? 57 41 ?? 41 ?? 41 ?? 48 8D ?? ?? ?? ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 45 33 ??"               // Lost Judgment
-    };
-
-    // All: Disable pillarboxing/letterboxing
-    std::vector<std::uint8_t*> DrawBarsScanResults = Memory::MultiPatternScanAll(exeModule, DrawBarsPatterns);
-    if (!DrawBarsScanResults.empty())
+    if (bDisablePillarboxing && bGlobalDisablePillarboxing) 
     {
-        spdlog::info("Disable Pillarboxing: Found {} pattern match(es).", DrawBarsScanResults.size());
-        for (auto& DrawBarsScanResult : DrawBarsScanResults) 
+        // job_draw_bars() patterns
+        std::vector<const char*> DrawBarsPatterns = {
+            "40 ?? ?? 41 ?? 48 8D ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? B9 ?? ?? ?? ??",                                                           // Pirate/LAD8
+            "40 ?? 56 57 41 ?? 41 ?? 48 8D ?? ?? ?? ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 45 33 ?? BE ?? ?? ?? ??",  // Gaiden
+            "40 ?? 48 8D ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? B9 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0",                                               // LAD7/Judgment
+            "48 89 ?? ?? ?? 55 56 57 48 8D ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? E8 ?? ?? ?? ?? 3B ?? ?? ?? ?? ?? 0F 83 ?? ?? ?? ??",                                               // Kiwami2
+            "40 ?? ?? 41 ?? 41 ?? 41 ?? 48 83 ?? ?? 48 C7 ?? ?? ?? ?? ?? ?? ?? 48 89 ?? ?? ?? 48 89 ?? ?? ?? ?? ?? ?? 4C ?? ?? B9 08 00 00 00",                                      // Yakuza 6
+            "40 ?? 57 41 ?? 41 ?? 41 ?? 48 8D ?? ?? ?? ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 45 33 ??"               // Lost Judgment
+        };
+
+        // All: Disable pillarboxing/letterboxing
+        std::vector<std::uint8_t*> DrawBarsScanResults = Memory::MultiPatternScanAll(exeModule, DrawBarsPatterns);
+        if (!DrawBarsScanResults.empty())
         {
-            spdlog::info("Disable Pillarboxing: Address: {:s}+0x{:x}", sExeName, DrawBarsScanResult - (std::uint8_t*)exeModule);
-            Memory::PatchBytes(DrawBarsScanResult, "\xC3\x90", 2);
+            spdlog::info("Disable Pillarboxing/Letterboxing: Global: Found {} pattern match(es).", DrawBarsScanResults.size());
+            for (auto& DrawBarsScanResult : DrawBarsScanResults) 
+            {
+                spdlog::info("Disable Pillarboxing/Letterboxing: Global: Address: {:s}+0x{:x}", sExeName, DrawBarsScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(DrawBarsScanResult, "\xC3\x90", 2);
+            }
+        }
+        else
+        {
+            spdlog::error("Disable Pillarboxing/Letterboxing: Global: Pattern scan(s) failed.");
         }
     }
-    else
+
+    if (bDisablePillarboxing && !bGlobalDisablePillarboxing) 
     {
-        spdlog::error("Disable Pillarboxing: Pattern scan(s) failed.");
+        if (eGameType == Game::Elvis) 
+        {
+            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "74 ?? ?? ?? EB ?? ?? ?? ?? ?? ?? 3D ?? ?? ?? ?? 77 ?? 48 8D ?? ?? ?? ?? ??");
+            std::uint8_t* TalkBarsScanResult = Memory::PatternScan(exeModule, "0F 85 ?? ?? ?? ?? 8B ?? ?? ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ?? 45 ?? ?? 0F 85 ?? ?? ?? ??");
+            if (CutsceneBarsScanResult && TalkBarsScanResult) 
+            {
+                spdlog::info("Disable Pillarboxing/Pillarboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(CutsceneBarsScanResult, "\x90\x90", 2);
+                spdlog::info("Disable Pillarboxing/Pillarboxing: Talk: Address: {:s}+0x{:x}", sExeName, TalkBarsScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(TalkBarsScanResult, "\x0F\x84", 2);
+            }
+            else 
+            {
+                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
+            }
+        }
+
+        if (eGameType == Game::Sparrow) 
+        {
+            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "75 ?? BA ?? ?? ?? ?? 48 8B ?? E8 ?? ?? ?? ?? 84 ?? 74 ?? 81 ?? ?? ?? ?? ?? 77 ?? 74 ??");
+            if (CutsceneBarsScanResult) 
+            {
+                spdlog::info("Disable Pillarboxing/Pillarboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(CutsceneBarsScanResult, "\x90\x90", 2);
+            }
+            else 
+            {
+                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
+            }
+        }
     }
 
-    if (eGameType == Game::OgreF) 
+    if (bDisablePillarboxing && eGameType == Game::OgreF) 
     {
         // Yakuza 6: Disable letterboxing
         std::uint8_t* LetterboxingScanResult = Memory::PatternScan(exeModule, "76 ?? C5 ?? ?? ?? C5 ?? ?? ?? C5 ?? ?? ?? 44 89 ?? C5 ?? ?? ?? ?? 4C 89 ?? ??");
         std::uint8_t* ForcedAspectRatioScanResult = Memory::PatternScan(exeModule, "7E ?? C5 ?? ?? ?? ?? ?? ?? ?? EB ?? C5 ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? 4C 8B ?? ?? ?? ?? ??");
         if (LetterboxingScanResult && ForcedAspectRatioScanResult) 
         {
-            spdlog::info("Disable Letterboxing: Letterboxing: Address: {:s}+0x{:x}", sExeName, LetterboxingScanResult - (std::uint8_t*)exeModule);
+            spdlog::info("Disable Pillarboxing/Letterboxing: Letterboxing: Address: {:s}+0x{:x}", sExeName, LetterboxingScanResult - (std::uint8_t*)exeModule);
             Memory::PatchBytes(LetterboxingScanResult, "\xEB", 1);
-            spdlog::info("Disable Letterboxing: Forced Aspect Ratio: Address: {:s}+0x{:x}", sExeName, ForcedAspectRatioScanResult - (std::uint8_t*)exeModule);
+            spdlog::info("Disable Pillarboxing/Letterboxing: Forced Aspect Ratio: Address: {:s}+0x{:x}", sExeName, ForcedAspectRatioScanResult - (std::uint8_t*)exeModule);
             Memory::PatchBytes(ForcedAspectRatioScanResult, "\xEB", 1);
         }
         else 
         {
-            spdlog::error("Disable Letterboxing: Pattern scan(s) failed.");
+            spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
         }
     }
 }
 
 void ShadowResolution()
 {
-    if (eGameType == Game::OgreF) 
+    if (iShadowResolution != 2048) 
     {
-        // Yakuza 6: Shadow resolution
-        std::uint8_t* ShadowResolutionScanResult = Memory::PatternScan(exeModule, "C7 ?? ?? ?? ?? ?? 00 08 00 00 C7 ?? ?? ?? ?? ?? 00 08 00 00 C6 ?? ?? ?? ?? ?? 00");
-        if (ShadowResolutionScanResult)
+        if (eGameType == Game::OgreF) 
         {
-            spdlog::info("Shadow Resolution: Address: {:s}+0x{:x}", sExeName, ShadowResolutionScanResult - (std::uint8_t*)exeModule);
-            Memory::Write(ShadowResolutionScanResult + 0x6, iShadowResolution);
-            Memory::Write(ShadowResolutionScanResult + 0x10, iShadowResolution);
+            // Yakuza 6: Shadow resolution
+            std::uint8_t* ShadowResolutionScanResult = Memory::PatternScan(exeModule, "C7 ?? ?? ?? ?? ?? 00 08 00 00 C7 ?? ?? ?? ?? ?? 00 08 00 00 C6 ?? ?? ?? ?? ?? 00");
+            if (ShadowResolutionScanResult)
+            {
+                spdlog::info("Shadow Resolution: Address: {:s}+0x{:x}", sExeName, ShadowResolutionScanResult - (std::uint8_t*)exeModule);
+                Memory::Write(ShadowResolutionScanResult + 0x6, iShadowResolution);
+                Memory::Write(ShadowResolutionScanResult + 0x10, iShadowResolution);
+            }
+            else
+            {
+                spdlog::error("Shadow Resolution: Pattern scan(s) failed.");
+            }
         }
-        else
+        else if (eGameType == Game::Lexus2) 
         {
-            spdlog::error("Shadow Resolution: Pattern scan(s) failed.");
+            // Kiwami 2: Shadow resolution
+            std::uint8_t* ShadowResolutionScanResult = Memory::PatternScan(exeModule, "E8 ?? ?? ?? ?? BA 00 08 00 00 41 ?? 00 04 00 00");
+            if (ShadowResolutionScanResult)
+            {
+                spdlog::info("Shadow Resolution: Address: {:s}+0x{:x}", sExeName, ShadowResolutionScanResult - (std::uint8_t*)exeModule);
+                Memory::Write(ShadowResolutionScanResult + 0x6, iShadowResolution);
+                Memory::Write(ShadowResolutionScanResult + 0xC, iShadowResolution / 2);
+            }
+            else
+            {
+                spdlog::error("Shadow Resolution: Pattern scan(s) failed.");
+            }
         }
-    }
-    else if (eGameType == Game::Lexus2) 
-    {
-        // Kiwami 2: Shadow resolution
-        std::uint8_t* ShadowResolutionScanResult = Memory::PatternScan(exeModule, "E8 ?? ?? ?? ?? BA 00 08 00 00 41 ?? 00 04 00 00");
-        if (ShadowResolutionScanResult)
+        else 
         {
-            spdlog::info("Shadow Resolution: Address: {:s}+0x{:x}", sExeName, ShadowResolutionScanResult - (std::uint8_t*)exeModule);
-            Memory::Write(ShadowResolutionScanResult + 0x6, iShadowResolution);
-            Memory::Write(ShadowResolutionScanResult + 0xC, iShadowResolution / 2);
+            // Newer: Shadow resolution
+            std::uint8_t* ShadowResolutionScanResult = Memory::PatternScan(exeModule, "39 0D ?? ?? ?? ?? 75 ?? 39 15 ?? ?? ?? ?? ?? ??");
+            if (ShadowResolutionScanResult)
+            {
+                spdlog::info("Shadow Resolution: Address: {:s}+0x{:x}", sExeName, ShadowResolutionScanResult - (std::uint8_t*)exeModule);
+                static SafetyHookMid ShadowResolutionMidHook{};
+                ShadowResolutionMidHook = safetyhook::create_mid(ShadowResolutionScanResult,
+                    [](SafetyHookContext &ctx)
+                    {
+                        // Check if shadowmap resolution is 2048x2048
+                        if (ctx.rcx == 0x800)
+                            ctx.rcx = ctx.rdx = static_cast<uintptr_t>(iShadowResolution);
+                    });
+            }
+            else
+            {
+                spdlog::error("Shadow Resolution: Pattern scan(s) failed.");
+            }
         }
-        else
-        {
-            spdlog::error("Shadow Resolution: Pattern scan(s) failed.");
-        }
-    }
-    else 
-    {
-        // Newer: Shadow resolution
-        std::uint8_t* ShadowResolutionScanResult = Memory::PatternScan(exeModule, "39 0D ?? ?? ?? ?? 75 ?? 39 15 ?? ?? ?? ?? ?? ??");
-        if (ShadowResolutionScanResult)
-        {
-            spdlog::info("Shadow Resolution: Address: {:s}+0x{:x}", sExeName, ShadowResolutionScanResult - (std::uint8_t*)exeModule);
-            static SafetyHookMid ShadowResolutionMidHook{};
-            ShadowResolutionMidHook = safetyhook::create_mid(ShadowResolutionScanResult,
-                [](SafetyHookContext &ctx)
-                {
-                    // Check if shadowmap resolution is 2048x2048
-                    if (ctx.rcx == 0x800)
-                        ctx.rcx = ctx.rdx = static_cast<uintptr_t>(iShadowResolution);
-                });
-        }
-        else
-        {
-            spdlog::error("Shadow Resolution: Pattern scan(s) failed.");
-        }
-    }
+    }  
 }
 
 std::mutex mainThreadFinishedMutex;
