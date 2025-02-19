@@ -1,7 +1,7 @@
 # DragonTweak
 
 **DragonTweak** is an ASI plugin for Dragon Engine games that can:
-- Disable pillarboxing.
+- Disable pillarboxing/letterboxing.
 - Adjust shadow resolution.
 - Skip intro logos.
 
@@ -31,7 +31,7 @@
 
 ## Troubleshooting
 - If the ASI loader name **`dinput8.dll`** is incompatible with your configuration, please refer to this [list of possible DLL proxies](https://github.com/ThirteenAG/Ultimate-ASI-Loader#description).
-- Yakuza 6 uses a different folder structure so remember to make sure that **`DragonTweak.asi`**, **`DragonTweak.ini`** and **`dinput8.dll`** are in the same folder as **`Yakuza6.exe`**.
+- Yakuza 6/Kiwami 2 use a different folder structure so remember to make sure that **`DragonTweak.asi`**, **`DragonTweak.ini`** and **`dinput8.dll`** are in the same folder as **`Yakuza6.exe`**.
 
 ### Credits
 [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) for ASI loading. <br />
