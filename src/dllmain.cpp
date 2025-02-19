@@ -29,6 +29,7 @@ std::string sExeName;
 // Ini variables
 bool bIntroSkip;
 int iShadowResolution;
+bool bAdjustLOD;
 bool bDisablePillarboxing;
 bool bGlobalDisablePillarboxing;
 
@@ -142,6 +143,7 @@ void Configuration()
     // Load settings from ini
     inipp::get_value(ini.sections["Intro Skip"], "Enabled", bIntroSkip);
     inipp::get_value(ini.sections["Shadow Quality"], "Resolution", iShadowResolution);
+    inipp::get_value(ini.sections["Adjust LOD"], "Enabled", bAdjustLOD);
     inipp::get_value(ini.sections["Disable Pillarboxing"], "Enabled", bDisablePillarboxing);
     inipp::get_value(ini.sections["Disable Pillarboxing"], "Global", bGlobalDisablePillarboxing);
 
@@ -151,6 +153,7 @@ void Configuration()
     // Log ini parse
     spdlog_confparse(bIntroSkip);
     spdlog_confparse(iShadowResolution);
+    spdlog_confparse(bAdjustLOD);
     spdlog_confparse(bDisablePillarboxing);
     spdlog_confparse(bGlobalDisablePillarboxing);
 
@@ -360,23 +363,6 @@ void DisablePillarboxing()
 
     if (bDisablePillarboxing && !bGlobalDisablePillarboxing) 
     {
-        if (eGameType == Game::Elvis) 
-        {
-            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "74 ?? ?? ?? EB ?? ?? ?? ?? ?? ?? 3D ?? ?? ?? ?? 77 ?? 48 8D ?? ?? ?? ?? ??");
-            std::uint8_t* TalkBarsScanResult = Memory::PatternScan(exeModule, "0F 85 ?? ?? ?? ?? 8B ?? ?? ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ?? 45 ?? ?? 0F 85 ?? ?? ?? ??");
-            if (CutsceneBarsScanResult && TalkBarsScanResult) 
-            {
-                spdlog::info("Disable Pillarboxing/Pillarboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(CutsceneBarsScanResult, "\x90\x90", 2);
-                spdlog::info("Disable Pillarboxing/Pillarboxing: Talk: Address: {:s}+0x{:x}", sExeName, TalkBarsScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(TalkBarsScanResult, "\x0F\x84", 2);
-            }
-            else 
-            {
-                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
-            }
-        }
-
         if (eGameType == Game::Sparrow) 
         {
             std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "75 ?? BA ?? ?? ?? ?? 48 8B ?? E8 ?? ?? ?? ?? 84 ?? 74 ?? 81 ?? ?? ?? ?? ?? 77 ?? 74 ??");
@@ -384,6 +370,32 @@ void DisablePillarboxing()
             {
                 spdlog::info("Disable Pillarboxing/Pillarboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
                 Memory::PatchBytes(CutsceneBarsScanResult, "\x90\x90", 2);
+            }
+            else 
+            {
+                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
+            }
+        }
+        else if (eGameType == Game::Elvis)
+        {
+            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "74 ?? ?? ?? EB ?? ?? ?? ?? ?? ?? 3D ?? ?? ?? ?? 77 ?? 48 8D ?? ?? ?? ?? ??");
+            if (CutsceneBarsScanResult) 
+            {
+                spdlog::info("Disable Pillarboxing/Pillarboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(CutsceneBarsScanResult, "\x90\x90", 2);
+            }
+            else 
+            {
+                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
+            }
+        }
+        else if (eGameType == Game::Aston) 
+        {
+            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "84 C0 0F 85 ?? ?? ?? ?? B0 01 48 8B ?? ?? ?? 48 83 ?? ?? 41 ??");
+            if (CutsceneBarsScanResult) 
+            {
+                spdlog::info("Disable Pillarboxing/Pillarboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(CutsceneBarsScanResult + 0x3, "\x84", 1);
             }
             else 
             {
@@ -469,6 +481,41 @@ void ShadowResolution()
     }  
 }
 
+void LOD() 
+{
+    if (bAdjustLOD) 
+    {
+        if (eGameType == Game::Sparrow || eGameType == Game::Elvis) 
+        {
+            // Pirate/IW LOD
+            std::uint8_t* LODSwitchScanResult = Memory::PatternScan(exeModule, "C5 F8 ?? ?? 72 ?? ?? ?? EB ?? C4 C1 ?? ?? ?? ?? C5 F8 ?? ??");
+            if (LODSwitchScanResult)
+            {
+                spdlog::info("LOD: Address: {:s}+0x{:x}", sExeName, LODSwitchScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(LODSwitchScanResult + 0x4, "\x90\x90", 2);
+            }
+            else
+            {
+                spdlog::error("LOD: Pattern scan(s) failed.");
+            }
+        }
+        else if (eGameType == Game::Aston)
+        {
+            // Gaiden LOD
+            std::uint8_t* LODSwitchScanResult = Memory::PatternScan(exeModule, "C5 F8 ?? ?? 72 ?? ?? ?? ?? EB ?? C4 C1 ?? ?? ?? ?? C5 F8 ?? ?? 72 ??");
+            if (LODSwitchScanResult)
+            {
+                spdlog::info("LOD: Address: {:s}+0x{:x}", sExeName, LODSwitchScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(LODSwitchScanResult + 0x4, "\x90\x90", 2);
+            }
+            else
+            {
+                spdlog::error("LOD: Pattern scan(s) failed.");
+            }
+        }
+    } 
+}
+
 std::mutex mainThreadFinishedMutex;
 std::condition_variable mainThreadFinishedVar;
 bool mainThreadFinished = false;
@@ -482,6 +529,7 @@ DWORD __stdcall Main(void*)
         IntroSkip();
         DisablePillarboxing();
         ShadowResolution();
+        LOD();
     }
 
     {
