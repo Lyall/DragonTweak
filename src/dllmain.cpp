@@ -183,7 +183,7 @@ bool DetectGame()
 bool bHasSkippedIntro = false;
 std::string sSceneID;
 int iStageID;
-const std::string sLexus2SkipID = "lexus2_logo";
+const std::string sLexus2SkipID = "lexus2_studio_logo";
 const std::string sOgreFSkipID  = "title_logo";
 const std::string sYazawaSkipID = "title_logo";
 const std::string sCoyoteSkipID = "title_photosensitive";
@@ -201,15 +201,19 @@ void IntroSkip()
             if (IntroSkipScanResult)
             {
                 spdlog::info("Intro Skip: Address: {:s}+0x{:x}", sExeName, IntroSkipScanResult - (std::uint8_t*)exeModule);
-                static SafetyHookMid aIntroSkipMidHook{};
-                aIntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult - 0xA,
+                static SafetyHookMid IntroSkipMidHook{};
+                IntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult - 0xA,
                     [](SafetyHookContext &ctx)
                     {
-                        spdlog::info("Intro Skip: Skipping intro logos.");
-                        LPSTR launchArgs = (LPSTR)ctx.rsi;
-                        static std::string sLaunchArgs = launchArgs;
-                        sLaunchArgs += " -skiplogo";
-                        ctx.rsi = reinterpret_cast<uintptr_t>(sLaunchArgs.c_str());
+                        if (!bHasSkippedIntro)
+                        {
+                            spdlog::info("Intro Skip: Skipping intro logos.");
+                            LPSTR launchArgs = (LPSTR)ctx.rsi;
+                            static std::string sLaunchArgs = launchArgs;
+                            sLaunchArgs += " -skiplogo";
+                            ctx.rsi = reinterpret_cast<uintptr_t>(sLaunchArgs.c_str());
+                            bHasSkippedIntro = true;
+                        }
                     });
             }
             else
@@ -290,8 +294,6 @@ void IntroSkip()
                                 ctx.rdx = 0xE10; // Set id to "lexus2_title"
                                 bHasSkippedIntro = true;
                             } 
-    
-                            bHasSkippedIntro = true;
                         }
                     });
             }
@@ -365,10 +367,11 @@ void DisablePillarboxing()
     {
         if (eGameType == Game::Sparrow) 
         {
+            // Pirate: Cutscene pillarboxing
             std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "75 ?? BA ?? ?? ?? ?? 48 8B ?? E8 ?? ?? ?? ?? 84 ?? 74 ?? 81 ?? ?? ?? ?? ?? 77 ?? 74 ??");
             if (CutsceneBarsScanResult) 
             {
-                spdlog::info("Disable Pillarboxing/Pillarboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
+                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
                 Memory::PatchBytes(CutsceneBarsScanResult, "\x90\x90", 2);
             }
             else 
@@ -378,10 +381,11 @@ void DisablePillarboxing()
         }
         else if (eGameType == Game::Elvis)
         {
+            // LAD8: Cutscene pillarboxing
             std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "74 ?? ?? ?? EB ?? ?? ?? ?? ?? ?? 3D ?? ?? ?? ?? 77 ?? 48 8D ?? ?? ?? ?? ??");
             if (CutsceneBarsScanResult) 
             {
-                spdlog::info("Disable Pillarboxing/Pillarboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
+                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
                 Memory::PatchBytes(CutsceneBarsScanResult, "\x90\x90", 2);
             }
             else 
@@ -389,13 +393,61 @@ void DisablePillarboxing()
                 spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
             }
         }
-        else if (eGameType == Game::Aston) 
+        else if (eGameType == Game::Aston || eGameType == Game::Coyote) 
         {
+            // Gaiden/LJ: Cutscene pillarboxing
             std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "84 C0 0F 85 ?? ?? ?? ?? B0 01 48 8B ?? ?? ?? 48 83 ?? ?? 41 ??");
             if (CutsceneBarsScanResult) 
             {
-                spdlog::info("Disable Pillarboxing/Pillarboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
+                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
                 Memory::PatchBytes(CutsceneBarsScanResult + 0x3, "\x84", 1);
+            }
+            else 
+            {
+                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
+            }
+        }
+        else if (eGameType == Game::Judge) 
+        {
+            // Judgment: Cutscene pillarboxing
+            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "40 ?? ?? 74 ?? B0 01 EB ?? 32 C0 48 8B ?? ?? ?? 48 8B ?? ?? ?? 48 8B ?? ?? ??");
+            if (CutsceneBarsScanResult) 
+            {
+                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(CutsceneBarsScanResult + 0x6, "\x00", 1);
+            }
+            else 
+            {
+                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
+            }
+        }
+        else if (eGameType == Game::Lexus2) 
+        {
+            // Kiwami 2: Cutscene pillarboxing
+            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "84 C0 74 ?? B0 01 48 8B ?? ?? ?? 48 83 ?? ?? ?? C3 E8 ?? ?? ?? ??");
+            if (CutsceneBarsScanResult) 
+            {
+                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(CutsceneBarsScanResult + 0x5, "\x00", 1);
+            }
+            else 
+            {
+                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
+            }
+        }
+        else if (eGameType == Game::OgreF) 
+        {
+            // Yakuza 6: Cutscene pillarboxing
+            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "49 ?? ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? E9 ?? ?? ?? ?? 0F ?? ?? ?? 0F 83 ?? ?? ?? ?? 41 ?? 03 00 00 00");
+            if (CutsceneBarsScanResult) 
+            {
+                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
+                static SafetyHookMid CutsceneBarsMidHook{};
+                CutsceneBarsMidHook = safetyhook::create_mid(CutsceneBarsScanResult,
+                    [](SafetyHookContext &ctx)
+                    {
+                        ctx.xmm2.f32[0] = 1000.00f;
+                    });
             }
             else 
             {
@@ -487,7 +539,7 @@ void LOD()
     {
         if (eGameType == Game::Sparrow || eGameType == Game::Elvis) 
         {
-            // Pirate/IW LOD
+            // Pirate/IW: LOD
             std::uint8_t* LODSwitchScanResult = Memory::PatternScan(exeModule, "C5 F8 ?? ?? 72 ?? ?? ?? EB ?? C4 C1 ?? ?? ?? ?? C5 F8 ?? ??");
             if (LODSwitchScanResult)
             {
@@ -499,14 +551,17 @@ void LOD()
                 spdlog::error("LOD: Pattern scan(s) failed.");
             }
         }
-        else if (eGameType == Game::Aston)
+        else if (eGameType == Game::Aston || eGameType == Game::Coyote)
         {
-            // Gaiden LOD
-            std::uint8_t* LODSwitchScanResult = Memory::PatternScan(exeModule, "C5 F8 ?? ?? 72 ?? ?? ?? ?? EB ?? C4 C1 ?? ?? ?? ?? C5 F8 ?? ?? 72 ??");
-            if (LODSwitchScanResult)
+            // Gaiden/LJ: LOD
+            std::uint8_t* ObjectLODSwitchScanResult = Memory::PatternScan(exeModule, "C5 F8 ?? ?? 72 ?? ?? ?? ?? EB ?? C4 C1 ?? ?? ?? ?? C5 F8 ?? ?? 72 ??");
+            std::uint8_t* FoliageLODSwitchScanResult = Memory::PatternScan(exeModule, "76 ?? 41 ?? ?? EB ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? ?? ?? 76 ?? B9 01 00 00 00");
+            if (ObjectLODSwitchScanResult && FoliageLODSwitchScanResult)
             {
-                spdlog::info("LOD: Address: {:s}+0x{:x}", sExeName, LODSwitchScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(LODSwitchScanResult + 0x4, "\x90\x90", 2);
+                spdlog::info("LOD: Object: Address: {:s}+0x{:x}", sExeName, ObjectLODSwitchScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(ObjectLODSwitchScanResult + 0x4, "\x90\x90", 2);
+                spdlog::info("LOD: Foliage: Address: {:s}+0x{:x}", sExeName, FoliageLODSwitchScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(FoliageLODSwitchScanResult, "\x90\x90", 2);
             }
             else
             {
