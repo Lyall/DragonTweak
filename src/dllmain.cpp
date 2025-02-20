@@ -197,12 +197,12 @@ void IntroSkip()
         if (eGameType == Game::Elvis || eGameType == Game::Sparrow)
         {
             // Intro skip
-            std::uint8_t* IntroSkipScanResult = Memory::PatternScan(exeModule, "4C ?? ?? ?? 41 ?? 01 00 00 00 48 8B ?? ?? 4C ?? ?? E8 ?? ?? ?? ??");
+            std::uint8_t* IntroSkipScanResult = Memory::PatternScan(exeModule, "48 89 ?? ?? 31 ?? 48 89 ?? E8 ?? ?? ?? ?? 4C 8B ?? ??");
             if (IntroSkipScanResult)
             {
                 spdlog::info("Intro Skip: Address: {:s}+0x{:x}", sExeName, IntroSkipScanResult - (std::uint8_t*)exeModule);
                 static SafetyHookMid IntroSkipMidHook{};
-                IntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult - 0xA,
+                IntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult,
                     [](SafetyHookContext &ctx)
                     {
                         if (!bHasSkippedIntro)
@@ -601,21 +601,21 @@ DWORD __stdcall Main(void*)
 
 std::mutex getCommandLineMutex;
 bool getCommandLineHookCalled = false;
-LPWSTR(WINAPI* GetCommandLineW_Fn)();
-LPWSTR WINAPI GetCommandLineW_Hook()
+LPSTR(WINAPI* GetCommandLineA_Fn)();
+LPSTR WINAPI GetCommandLineA_Hook()
 {
     std::lock_guard lock(getCommandLineMutex);
     if (!getCommandLineHookCalled)
     {
         getCommandLineHookCalled = true;
-        Memory::HookIAT(exeModule, "kernel32.dll", GetCommandLineW_Hook, GetCommandLineW_Fn);
+        Memory::HookIAT(exeModule, "kernel32.dll", GetCommandLineA_Hook, GetCommandLineA_Fn);
         if (!mainThreadFinished)
         {
             std::unique_lock finishedLock(mainThreadFinishedMutex);
             mainThreadFinishedVar.wait(finishedLock, [] { return mainThreadFinished; });
         }
     }
-    return GetCommandLineW_Fn();
+    return GetCommandLineA_Fn();
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
@@ -628,10 +628,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         HMODULE kernel32 = GetModuleHandleA("kernel32.dll");
         if (kernel32)
         {
-            GetCommandLineW_Fn = reinterpret_cast<decltype(GetCommandLineW_Fn)>(GetProcAddress(kernel32, "GetCommandLineW"));
-            if (GetCommandLineW_Fn)
+            GetCommandLineA_Fn = reinterpret_cast<decltype(GetCommandLineA_Fn)>(GetProcAddress(kernel32, "GetCommandLineA"));
+            if (GetCommandLineA_Fn)
             {
-                Memory::HookIAT(exeModule, "kernel32.dll", GetCommandLineW_Fn, GetCommandLineW_Hook);
+                Memory::HookIAT(exeModule, "kernel32.dll", GetCommandLineA_Fn, GetCommandLineA_Hook);
             }
         }
 
