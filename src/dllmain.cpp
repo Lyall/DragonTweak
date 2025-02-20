@@ -31,7 +31,6 @@ bool bIntroSkip;
 int iShadowResolution;
 bool bAdjustLOD;
 bool bDisablePillarboxing;
-bool bGlobalDisablePillarboxing;
 
 // Variables
 int iCurrentResX;
@@ -145,7 +144,6 @@ void Configuration()
     inipp::get_value(ini.sections["Shadow Quality"], "Resolution", iShadowResolution);
     inipp::get_value(ini.sections["Adjust LOD"], "Enabled", bAdjustLOD);
     inipp::get_value(ini.sections["Disable Pillarboxing"], "Enabled", bDisablePillarboxing);
-    inipp::get_value(ini.sections["Disable Pillarboxing"], "Global", bGlobalDisablePillarboxing);
 
     // Clamp settings
     iShadowResolution = std::clamp(iShadowResolution, 64, 8192);
@@ -155,7 +153,6 @@ void Configuration()
     spdlog_confparse(iShadowResolution);
     spdlog_confparse(bAdjustLOD);
     spdlog_confparse(bDisablePillarboxing);
-    spdlog_confparse(bGlobalDisablePillarboxing);
 
     spdlog::info("----------");
 }
@@ -334,7 +331,7 @@ void IntroSkip()
 
 void DisablePillarboxing()
 {
-    if (bDisablePillarboxing && bGlobalDisablePillarboxing) 
+    if (bDisablePillarboxing) 
     {
         // job_draw_bars() patterns
         std::vector<const char*> DrawBarsPatterns = {
@@ -360,102 +357,6 @@ void DisablePillarboxing()
         else
         {
             spdlog::error("Disable Pillarboxing/Letterboxing: Global: Pattern scan(s) failed.");
-        }
-    }
-
-    if (bDisablePillarboxing && !bGlobalDisablePillarboxing) 
-    {
-        if (eGameType == Game::Sparrow) 
-        {
-            // Pirate: Cutscene pillarboxing
-            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "75 ?? BA ?? ?? ?? ?? 48 8B ?? E8 ?? ?? ?? ?? 84 ?? 74 ?? 81 ?? ?? ?? ?? ?? 77 ?? 74 ??");
-            if (CutsceneBarsScanResult) 
-            {
-                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(CutsceneBarsScanResult, "\x90\x90", 2);
-            }
-            else 
-            {
-                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
-            }
-        }
-        else if (eGameType == Game::Elvis)
-        {
-            // LAD8: Pillarboxing
-            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "74 ?? ?? ?? EB ?? ?? ?? ?? ?? ?? 3D ?? ?? ?? ?? 77 ?? 48 8D ?? ?? ?? ?? ??");
-            std::uint8_t* TalkBarsScanResult = Memory::PatternScan(exeModule, "0F 85 ?? ?? ?? ?? 8B ?? ?? ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ?? 45 ?? ?? 0F 85 ?? ?? ?? ??");
-            if (CutsceneBarsScanResult && TalkBarsScanResult) 
-            {
-                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(CutsceneBarsScanResult, "\x90\x90", 2);
-                spdlog::info("Disable Pillarboxing/Letterboxing: Talk: Address: {:s}+0x{:x}", sExeName, TalkBarsScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(TalkBarsScanResult, "\x90\x90\x90\x90\x90\x90", 6);
-            }
-            else 
-            {
-                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
-            }
-        }
-        else if (eGameType == Game::Aston || eGameType == Game::Coyote) 
-        {
-            // Gaiden/LJ: Cutscene pillarboxing
-            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "84 C0 0F 85 ?? ?? ?? ?? B0 01 48 8B ?? ?? ?? 48 83 ?? ?? 41 ??");
-            if (CutsceneBarsScanResult) 
-            {
-                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(CutsceneBarsScanResult + 0x3, "\x84", 1);
-            }
-            else 
-            {
-                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
-            }
-        }
-        else if (eGameType == Game::Judge) 
-        {
-            // Judgment: Cutscene pillarboxing
-            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "40 ?? ?? 74 ?? B0 01 EB ?? 32 C0 48 8B ?? ?? ?? 48 8B ?? ?? ?? 48 8B ?? ?? ??");
-            if (CutsceneBarsScanResult) 
-            {
-                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(CutsceneBarsScanResult + 0x6, "\x00", 1);
-            }
-            else 
-            {
-                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
-            }
-        }
-        else if (eGameType == Game::Lexus2) 
-        {
-            // Kiwami 2: Cutscene pillarboxing
-            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "84 C0 74 ?? B0 01 48 8B ?? ?? ?? 48 83 ?? ?? ?? C3 E8 ?? ?? ?? ??");
-            if (CutsceneBarsScanResult) 
-            {
-                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(CutsceneBarsScanResult + 0x5, "\x00", 1);
-            }
-            else 
-            {
-                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
-            }
-        }
-        else if (eGameType == Game::OgreF) 
-        {
-            // Yakuza 6: Cutscene pillarboxing
-            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "49 ?? ?? E8 ?? ?? ?? ?? C5 ?? ?? ?? E9 ?? ?? ?? ?? 0F ?? ?? ?? 0F 83 ?? ?? ?? ?? 41 ?? 03 00 00 00");
-            if (CutsceneBarsScanResult) 
-            {
-                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
-                static SafetyHookMid CutsceneBarsMidHook{};
-                CutsceneBarsMidHook = safetyhook::create_mid(CutsceneBarsScanResult,
-                    [](SafetyHookContext &ctx)
-                    {
-                        ctx.xmm2.f32[0] = 1000.00f;
-                    });
-            }
-            else 
-            {
-                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
-            }
         }
     }
 
