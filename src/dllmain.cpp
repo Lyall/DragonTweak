@@ -381,12 +381,15 @@ void DisablePillarboxing()
         }
         else if (eGameType == Game::Elvis)
         {
-            // LAD8: Cutscene pillarboxing
+            // LAD8: Pillarboxing
             std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "74 ?? ?? ?? EB ?? ?? ?? ?? ?? ?? 3D ?? ?? ?? ?? 77 ?? 48 8D ?? ?? ?? ?? ??");
-            if (CutsceneBarsScanResult) 
+            std::uint8_t* TalkBarsScanResult = Memory::PatternScan(exeModule, "0F 85 ?? ?? ?? ?? 8B ?? ?? ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ?? 45 ?? ?? 0F 85 ?? ?? ?? ??");
+            if (CutsceneBarsScanResult && TalkBarsScanResult) 
             {
                 spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
                 Memory::PatchBytes(CutsceneBarsScanResult, "\x90\x90", 2);
+                spdlog::info("Disable Pillarboxing/Letterboxing: Talk: Address: {:s}+0x{:x}", sExeName, TalkBarsScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(TalkBarsScanResult, "\x90\x90\x90\x90\x90\x90", 6);
             }
             else 
             {
