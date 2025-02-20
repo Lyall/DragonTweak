@@ -10,14 +10,14 @@
 
 | Game                                              | Disable Pillarboxing/Letterboxing | Adjust Shadow Resolution | Adjust LOD | Skip Intro Logos |
 |---------------------------------------------------|-----------------------------------|--------------------------|------------|------------------|
-| Yakuza 6: The Song of Life                        | ✔️                               | ✔️                       | ❌         | ✔️              |
-| Yakuza Kiwami 2                                   | ✔️                               | ✔️                       | ❌         | ✔️              |
-| Judgment                                          | ✔️                               | ✔️                       | ❌         | ✔️              |
-| Yakuza: Like A Dragon                             | ✔️                               | ✔️                       | ❌         | ✔️              |
-| Lost Judgment                                     | ✔️                               | ✔️                       | ✔️         | ✔️              |
-| Like a Dragon Gaiden: The Man Who Erased His Name | ✔️                               | ✔️                       | ✔️         | ✔️              |
-| Like a Dragon: Infinite Wealth                    | ✔️                               | ✔️                       | ✔️         | ✔️              |
 | Like a Dragon: Pirate Yakuza in Hawaii            | ✔️                               | ✔️                       | ✔️         | ✔️              |
+| Like a Dragon: Infinite Wealth                    | ✔️                               | ✔️                       | ✔️         | ✔️              |
+| Like a Dragon Gaiden: The Man Who Erased His Name | ✔️                               | ✔️                       | ✔️         | ✔️              |
+| Lost Judgment                                     | ✔️                               | ✔️                       | ✔️         | ✔️              |
+| Yakuza: Like A Dragon                             | ✔️                               | ✔️                       | ❌         | ✔️              |
+| Judgment                                          | ✔️                               | ✔️                       | ❌         | ✔️              |
+| Yakuza Kiwami 2                                   | ✔️                               | ✔️                       | ❌         | ✔️              |
+| Yakuza 6: The Song of Life                        | ✔️                               | ✔️                       | ❌         | ✔️              |
 
 ## Installation  
 - Download the latest release from [here](https://github.com/Lyall/DragonTweak/releases). 
