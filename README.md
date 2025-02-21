@@ -1,23 +1,25 @@
 # DragonTweak
+[![Patreon-Button](https://github.com/Lyall/DragonTweak/blob/main/.github/Patreon-Button.png?raw=true)](https://www.patreon.com/Wintermance) 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W01UAI9)<br />
+[![Github All Releases](https://img.shields.io/github/downloads/Lyall/DragonTweak/total.svg)](https://github.com/Lyall/DragonTweak/releases)
 
 **DragonTweak** is an ASI plugin for Dragon Engine games that can:
 - Disable pillarboxing/letterboxing.
 - Adjust shadow resolution.
 - Adjust level of detail (LOD).
 - Skip intro logos.
-
 ### Current Features 
 
 | Game                                              | Disable Pillarboxing/Letterboxing | Adjust Shadow Resolution | Adjust LOD | Skip Intro Logos |
 |---------------------------------------------------|-----------------------------------|--------------------------|------------|------------------|
-| Yakuza 6: The Song of Life                        | ✔️                               | ✔️                       | ❌         | ✔️              |
-| Yakuza Kiwami 2                                   | ✔️                               | ✔️                       | ❌         | ✔️              |
-| Judgment                                          | ✔️                               | ✔️                       | ❌         | ✔️              |
-| Yakuza: Like A Dragon                             | ✔️                               | ✔️                       | ❌         | ✔️              |
-| Lost Judgment                                     | ✔️                               | ✔️                       | ✔️         | ✔️              |
-| Like a Dragon Gaiden: The Man Who Erased His Name | ✔️                               | ✔️                       | ✔️         | ✔️              |
-| Like a Dragon: Infinite Wealth                    | ✔️                               | ✔️                       | ✔️         | ✔️              |
 | Like a Dragon: Pirate Yakuza in Hawaii            | ✔️                               | ✔️                       | ✔️         | ✔️              |
+| Like a Dragon: Infinite Wealth                    | ✔️                               | ✔️                       | ✔️         | ✔️              |
+| Like a Dragon Gaiden: The Man Who Erased His Name | ✔️                               | ✔️                       | ✔️         | ✔️              |
+| Lost Judgment                                     | ✔️                               | ✔️                       | ✔️         | ✔️              |
+| Yakuza: Like A Dragon                             | ✔️                               | ✔️                       | ❌         | ✔️              |
+| Judgment                                          | ✔️                               | ✔️                       | ❌         | ✔️              |
+| Yakuza Kiwami 2                                   | ✔️                               | ✔️                       | ❌         | ✔️              |
+| Yakuza 6: The Song of Life                        | ✔️                               | ✔️                       | ❌         | ✔️              |
 
 ## Installation  
 - Download the latest release from [here](https://github.com/Lyall/DragonTweak/releases). 
@@ -34,7 +36,7 @@
 - If the ASI loader name **`dinput8.dll`** is incompatible with your configuration, please refer to this [list of possible DLL proxies](https://github.com/ThirteenAG/Ultimate-ASI-Loader#description).
 - Yakuza 6 + Kiwami 2 use a different folder structure so remember to make sure that **`DragonTweak.asi`**, **`DragonTweak.ini`** and **`dinput8.dll`** are in the same folder as **`Yakuza6.exe`** or **`YakuzaKiwami2.exe`**.
 
-### Credits
+## Credits
 [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) for ASI loading. <br />
 [inipp](https://github.com/mcmtroffaes/inipp) for ini reading. <br />
 [spdlog](https://github.com/gabime/spdlog) for logging. <br />
