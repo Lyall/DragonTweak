@@ -1,5 +1,6 @@
 # DragonTweak
-[![Patreon-Button](https://raw.githubusercontent.com/Lyall/DragonTweak/refs/heads/master/.github/Patreon-Button.png)](https://www.patreon.com/Wintermance) [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W01UAI9)<br />
+[![Patreon-Button](https://github.com/Lyall/DragonTweak/blob/main/.github/Patreon-Button.png?raw=true)](https://www.patreon.com/Wintermance) 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W01UAI9)<br />
 [![Github All Releases](https://img.shields.io/github/downloads/Lyall/DragonTweak/total.svg)](https://github.com/Lyall/DragonTweak/releases)
 
 **DragonTweak** is an ASI plugin for Dragon Engine games that can:
@@ -7,7 +8,6 @@
 - Adjust shadow resolution.
 - Adjust level of detail (LOD).
 - Skip intro logos.
-
 ### Current Features 
 
 | Game                                              | Disable Pillarboxing/Letterboxing | Adjust Shadow Resolution | Adjust LOD | Skip Intro Logos |
