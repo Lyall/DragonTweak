@@ -329,13 +329,14 @@ void IntroSkip()
     }
 }
 
+std::uint8_t* MovieStatus = nullptr;
+
 void DisablePillarboxing()
 {
-    if (bDisablePillarboxing) 
+    if (bDisablePillarboxing && eGameType != Game::Sparrow && eGameType != Game::Elvis) 
     {
         // job_draw_bars() patterns
-        std::vector<const char*> DrawBarsPatterns = {
-            "40 ?? ?? 41 ?? 48 8D ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? B9 ?? ?? ?? ??",                                                           // Pirate/LAD8
+        std::vector<const char*> DrawBarsPatterns = {          
             "40 ?? 56 57 41 ?? 41 ?? 48 8D ?? ?? ?? ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 45 33 ?? BE ?? ?? ?? ??",  // Gaiden
             "40 ?? 48 8D ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? B9 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0",                                               // LAD7/Judgment
             "48 89 ?? ?? ?? 55 56 57 48 8D ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? E8 ?? ?? ?? ?? 3B ?? ?? ?? ?? ?? 0F 83 ?? ?? ?? ??",                                               // Kiwami2
@@ -344,20 +345,82 @@ void DisablePillarboxing()
         };
 
         // All: Disable pillarboxing/letterboxing
-        std::vector<std::uint8_t*> DrawBarsScanResults = Memory::MultiPatternScanAll(exeModule, DrawBarsPatterns);
-        if (!DrawBarsScanResults.empty())
+        std::uint8_t* DrawBarsScanResult = Memory::MultiPatternScan(exeModule, DrawBarsPatterns);
+        if (DrawBarsScanResult)
         {
-            spdlog::info("Disable Pillarboxing/Letterboxing: Global: Found {} pattern match(es).", DrawBarsScanResults.size());
-            for (auto& DrawBarsScanResult : DrawBarsScanResults) 
-            {
-                spdlog::info("Disable Pillarboxing/Letterboxing: Global: Address: {:s}+0x{:x}", sExeName, DrawBarsScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(DrawBarsScanResult, "\xC3\x90", 2);
-            }
+            spdlog::info("Disable Pillarboxing/Letterboxing: Global: Address: {:s}+0x{:x}", sExeName, DrawBarsScanResult - (std::uint8_t*)exeModule);
+            Memory::PatchBytes(DrawBarsScanResult, "\xC3\x90", 2);
         }
         else
         {
             spdlog::error("Disable Pillarboxing/Letterboxing: Global: Pattern scan(s) failed.");
         }
+    }
+
+    if (bDisablePillarboxing && (eGameType == Game::Sparrow || eGameType == Game::Elvis))
+    {
+        // Pirate/LAD8: Movie
+        std::uint8_t* MovieStatusScanResult = Memory::PatternScan(exeModule, "75 ?? C6 ?? ?? ?? ?? ?? 01 E8 ?? ?? ?? ?? 48 8B ?? ?? ?? 48 8B ?? ?? ?? 48 ?? ?? ??");
+        std::uint8_t* MoviePillarboxingScanResult = Memory::PatternScan(exeModule, "83 3D ?? ?? ?? ?? 00 0F 85 ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? 44 8B ?? ?? ?? ?? ??");
+        if (MovieStatusScanResult && MoviePillarboxingScanResult)
+        {
+            spdlog::info("Disable Pillarboxing: Movie Status: Address: {:s}+0x{:x}", sExeName, MovieStatusScanResult - (std::uint8_t*)exeModule);
+            static SafetyHookMid MovieStatusMidHook{};
+            MovieStatusMidHook = safetyhook::create_mid(Memory::GetAbsolute(Memory::GetAbsolute(MovieStatusScanResult + 0xA) + 0x1),
+                [](SafetyHookContext &ctx)
+                {
+                    if (ctx.rbx) 
+                        MovieStatus = (std::uint8_t*)ctx.rbx;
+                });
+
+            spdlog::info("Disable Pillarboxing: Movie Pillarboxing: Address: {:s}+0x{:x}", sExeName, MoviePillarboxingScanResult - (std::uint8_t*)exeModule);
+            static SafetyHookMid MoviePillarboxingMidHook{};
+            MoviePillarboxingMidHook = safetyhook::create_mid(MoviePillarboxingScanResult + 0x7,
+                [](SafetyHookContext &ctx)
+                {
+                    if (MovieStatus && (*reinterpret_cast<BYTE*>(MovieStatus + 0x9D) == 1 || *reinterpret_cast<BYTE*>(MovieStatus + 0x149) == 1))
+                        ctx.rflags &= ~(1ULL << 6);
+                    else
+                        ctx.rflags |= (1ULL << 6);
+                });
+        }
+        else
+        {
+            spdlog::error("Disable Pillarboxing: Movie Status: Pattern scan(s) failed.");
+        }
+
+        if (eGameType == Game::Sparrow) 
+        {
+            // Pirate: Pillarboxing
+            std::uint8_t* PillarboxingScanResult = Memory::PatternScan(exeModule, "75 ?? BA ?? ?? ?? ?? 48 8B ?? E8 ?? ?? ?? ?? 84 C0 75 ?? BA ?? ?? ?? ?? 48 8B ?? E8 ?? ?? ?? ?? 84 ?? 74 ?? 81 ?? ?? ?? ?? ?? 77 ??");
+            if (PillarboxingScanResult)
+            {
+                spdlog::info("Disable Pillarboxing: Pillarboxing: Address: {:s}+0x{:x}", sExeName, PillarboxingScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(PillarboxingScanResult, "\x90\x90", 2); // Cutscenes
+                Memory::PatchBytes(PillarboxingScanResult + 0x11, "\x90\x90", 2); // Talk
+            }
+            else
+            {
+                spdlog::error("Disable Pillarboxing: Pillarboxing: Pattern scan(s) failed.");
+            }
+        }
+        else if (eGameType == Game::Elvis) 
+        {
+            // LAD8: Pillarboxing
+            std::uint8_t* CutscenePillarboxingScanResult = Memory::PatternScan(exeModule, "74 ?? 32 ?? EB ?? 05 ?? ?? ?? ?? 3D ?? ?? ?? ?? 77 ?? 48 8D ?? ?? ?? ?? ??");
+            std::uint8_t* TalkPillarboxingScanResult = Memory::PatternScan(exeModule, "0F 85 ?? ?? ?? ?? 8B ?? ?? ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ??");
+            if (CutscenePillarboxingScanResult && TalkPillarboxingScanResult)
+            {
+                spdlog::info("Disable Pillarboxing: Cutscene Pillarboxing: Address: {:s}+0x{:x}", sExeName, CutscenePillarboxingScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(CutscenePillarboxingScanResult, "\x90\x90", 2); // Cutscenes
+                spdlog::info("Disable Pillarboxing: Talk Pillarboxing: Address: {:s}+0x{:x}", sExeName, TalkPillarboxingScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(TalkPillarboxingScanResult, "\x90\x90\x90\x90\x90\x90", 6); // Talk
+            }
+            else
+            {
+                spdlog::error("Disable Pillarboxing: Pillarboxing: Pattern scan(s) failed.");
+            }
+        } 
     }
 
     if (bDisablePillarboxing && eGameType == Game::OgreF) 
