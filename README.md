@@ -12,8 +12,8 @@
 
 | Game                                              | Disable Pillarboxing/Letterboxing | Adjust Shadow Resolution | Adjust LOD | Skip Intro Logos |
 |---------------------------------------------------|-----------------------------------|--------------------------|------------|------------------|
-| Like a Dragon: Pirate Yakuza in Hawaii            | ✔️                               | ✔️                       | ✔️         | ✔️              |
-| Like a Dragon: Infinite Wealth                    | ✔️                               | ✔️                       | ✔️         | ✔️              |
+| Like a Dragon: Pirate Yakuza in Hawaii            | ✔️                               | ✔️ + Draw Distance       | ✔️         | ✔️              |
+| Like a Dragon: Infinite Wealth                    | ✔️                               | ✔️ + Draw Distance       | ✔️         | ✔️              |
 | Like a Dragon Gaiden: The Man Who Erased His Name | ✔️                               | ✔️                       | ✔️         | ✔️              |
 | Lost Judgment                                     | ✔️                               | ✔️                       | ✔️         | ✔️              |
 | Yakuza: Like A Dragon                             | ✔️                               | ✔️                       | ❌         | ✔️              |
