@@ -29,6 +29,7 @@ std::string sExeName;
 // Ini variables
 bool bIntroSkip;
 int iShadowResolution;
+bool bShadowDrawDistance;
 bool bAdjustLOD;
 bool bDisablePillarboxing;
 
@@ -142,6 +143,7 @@ void Configuration()
     // Load settings from ini
     inipp::get_value(ini.sections["Intro Skip"], "Enabled", bIntroSkip);
     inipp::get_value(ini.sections["Shadow Quality"], "Resolution", iShadowResolution);
+    inipp::get_value(ini.sections["Shadow Quality"], "DrawDistance", bShadowDrawDistance);
     inipp::get_value(ini.sections["Adjust LOD"], "Enabled", bAdjustLOD);
     inipp::get_value(ini.sections["Disable Pillarboxing"], "Enabled", bDisablePillarboxing);
 
@@ -151,6 +153,7 @@ void Configuration()
     // Log ini parse
     spdlog_confparse(bIntroSkip);
     spdlog_confparse(iShadowResolution);
+    spdlog_confparse(bShadowDrawDistance);
     spdlog_confparse(bAdjustLOD);
     spdlog_confparse(bDisablePillarboxing);
 
@@ -442,7 +445,7 @@ void DisablePillarboxing()
     }
 }
 
-void ShadowResolution()
+void Graphics()
 {
     if (iShadowResolution != 2048) 
     {
@@ -497,21 +500,44 @@ void ShadowResolution()
                 spdlog::error("Shadow Resolution: Pattern scan(s) failed.");
             }
         }
-    }  
-}
+    }
 
-void LOD() 
-{
+    if (bShadowDrawDistance && (eGameType == Game::Sparrow || eGameType == Game::Elvis)) 
+    {
+        // Shadow draw distance
+        std::uint8_t* ShadowDrawDistanceScanResult = nullptr;
+        if (eGameType == Game::Sparrow)
+            ShadowDrawDistanceScanResult = Memory::PatternScan(exeModule, "75 ?? C5 ?? 10 ?? ?? ?? ?? ?? C5 ?? ?? ?? 48 8D ?? ?? ?? 49 ?? ?? C5 ?? 11 ?? ?? ??");
+        else if (eGameType == Game::Elvis)
+            ShadowDrawDistanceScanResult = Memory::PatternScan(exeModule, "75 ?? C5 ?? 57 ?? C4 ?? ?? ?? ?? C5 ?? ?? ?? C5 ?? 57 ?? C5 ?? 10 ??");
+        if (ShadowDrawDistanceScanResult)
+        {
+            spdlog::info("Shadow Draw Distance: Address: {:s}+0x{:x}", sExeName, ShadowDrawDistanceScanResult - (std::uint8_t*)exeModule);
+            Memory::PatchBytes(ShadowDrawDistanceScanResult, "\xEB", 1);
+        }
+        else
+        {
+            spdlog::error("Shadow Draw Distance: Pattern scan(s) failed.");
+        }
+    }
+    
     if (bAdjustLOD) 
     {
         if (eGameType == Game::Sparrow || eGameType == Game::Elvis) 
         {
             // Pirate/IW: LOD
-            std::uint8_t* LODSwitchScanResult = Memory::PatternScan(exeModule, "C5 F8 ?? ?? 72 ?? ?? ?? EB ?? C4 C1 ?? ?? ?? ?? C5 F8 ?? ??");
-            if (LODSwitchScanResult)
+            std::uint8_t* ObjectLODSwitchScanResult = Memory::PatternScan(exeModule, "0F 85 ?? ?? ?? ?? 0F B6 ?? ?? ?? 0F 84 ?? ?? ?? ?? 83 ?? 01 0F 84 ?? ?? ?? ??");
+            std::uint8_t* FoliageLODSwitchScanResult = Memory::PatternScan(exeModule, "C5 F8 ?? ?? 72 ?? ?? ?? EB ?? C4 C1 ?? ?? ?? ?? C5 F8 ?? ??");
+            if (ObjectLODSwitchScanResult && FoliageLODSwitchScanResult)
             {
-                spdlog::info("LOD: Address: {:s}+0x{:x}", sExeName, LODSwitchScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(LODSwitchScanResult + 0x4, "\x90\x90", 2);
+                spdlog::info("LOD: Object: Address: {:s}+0x{:x}", sExeName, ObjectLODSwitchScanResult - (std::uint8_t*)exeModule);
+                if (eGameType == Game::Sparrow)
+                    Memory::PatchBytes(ObjectLODSwitchScanResult + 0x6, "\x31\xC9\x90", 3); // xor ecx,ecx
+                else if (eGameType == Game::Elvis)
+                    Memory::PatchBytes(ObjectLODSwitchScanResult + 0x6, "\x31\xC1\x90", 3); // xor eax,eax
+
+                spdlog::info("LOD: Foliage: Address: {:s}+0x{:x}", sExeName, FoliageLODSwitchScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(FoliageLODSwitchScanResult + 0x4, "\x90\x90", 2);
             }
             else
             {
@@ -527,6 +553,7 @@ void LOD()
             {
                 spdlog::info("LOD: Object: Address: {:s}+0x{:x}", sExeName, ObjectLODSwitchScanResult - (std::uint8_t*)exeModule);
                 Memory::PatchBytes(ObjectLODSwitchScanResult + 0x4, "\x90\x90", 2);
+
                 spdlog::info("LOD: Foliage: Address: {:s}+0x{:x}", sExeName, FoliageLODSwitchScanResult - (std::uint8_t*)exeModule);
                 Memory::PatchBytes(FoliageLODSwitchScanResult, "\x90\x90", 2);
             }
@@ -535,7 +562,7 @@ void LOD()
                 spdlog::error("LOD: Pattern scan(s) failed.");
             }
         }
-    } 
+    }
 }
 
 std::mutex mainThreadFinishedMutex;
@@ -550,8 +577,7 @@ DWORD __stdcall Main(void*)
     {
         IntroSkip();
         DisablePillarboxing();
-        ShadowResolution();
-        LOD();
+        Graphics();
     }
 
     {
@@ -588,6 +614,13 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     {
     case DLL_PROCESS_ATTACH:
     {
+        // Detach from "startup.exe"
+        char exeName[MAX_PATH];
+        GetModuleFileNameA(NULL, exeName, MAX_PATH);
+        std::string exeStr(exeName);
+        if (exeStr.find("startup.exe") != std::string::npos)
+            return FALSE;
+
         thisModule = hModule;
         HMODULE kernel32 = GetModuleHandleA("kernel32.dll");
         if (kernel32)
