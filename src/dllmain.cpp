@@ -237,6 +237,7 @@ void IntroSkip()
             std::uint8_t* CreateConfigSceneScanResult = Memory::MultiPatternScan(exeModule, CreateConfigScenePatterns);
             if (CreateConfigSceneScanResult)
             {
+                static int iRunCount = 0;
                 spdlog::info("Intro Skip: Create Config Scene: Address: {:s}+0x{:x}", sExeName, CreateConfigSceneScanResult - (std::uint8_t*)exeModule);
                 static SafetyHookMid CreateConfigSceneMidHook{};
                 CreateConfigSceneMidHook = safetyhook::create_mid(CreateConfigSceneScanResult,
@@ -244,7 +245,7 @@ void IntroSkip()
                     {
                         if (ctx.rbx && ctx.r8 && ctx.rdi && !bHasSkippedIntro)
                         {
-                            if (eGameType == Game::OgreF )
+                            if (eGameType == Game::OgreF)
                                 sSceneID = *reinterpret_cast<char**>(ctx.rdi + 0x10);
                             else if (eGameType == Game::Lexus2)
                                 sSceneID = *reinterpret_cast<char**>(ctx.rbx + 0x08);
@@ -259,46 +260,34 @@ void IntroSkip()
                             {
                                 ctx.rdx = 0x10D4; // Set to coyote_title
                                 *reinterpret_cast<int*>(ctx.r8 + 0x4) = 0xF4; // Stage change!
-                                bHasSkippedIntro = true;
                             }
                             
                             // Yakuza: Like a Dragon
                             if (eGameType == Game::Yazawa && Util::string_cmp_caseless(sSceneID, sYazawaSkipID)) 
-                            {
                                 ctx.rdx = 0x2096; // Set ID to "yazawa_title"
-                                bHasSkippedIntro = true;
-                            }
     
                             // Like a Dragon: Gaiden
                             if (eGameType == Game::Aston && Util::string_cmp_caseless(sSceneID, sAstonSkipID)) 
                             {
                                 ctx.rdx = 0x177; // Set id to "aston_title"
                                 *reinterpret_cast<int*>(ctx.r8 + 0x4) = 0xF4; // Stage change!
-                                bHasSkippedIntro = true;
                             } 
                             
                             // Judgment
                             if (eGameType == Game::Judge && Util::string_cmp_caseless(sSceneID, sJudgeSkipID)) 
-                            {
                                 ctx.rdx = 0xC88; // Set id to "judge_title"
-                                bHasSkippedIntro = true;
-                            }
     
                             // Yakuza 6
                             if (eGameType == Game::OgreF && Util::string_cmp_caseless(sSceneID, sOgreFSkipID)) 
-                            {
                                 ctx.rdx = 0x62E; // Set id to "title"
-                                bHasSkippedIntro = true;
-                            }
     
                             // Yakuza Kiwami 2
                             if (eGameType == Game::Lexus2 && Util::string_cmp_caseless(sSceneID, sLexus2SkipID)) 
-                            {
                                 ctx.rdx = 0xE10; // Set id to "lexus2_title"
-                                bHasSkippedIntro = true;
-                            } 
 
-                            bHasSkippedIntro = true;
+                            iRunCount++;
+                            if (iRunCount > 1)
+                                bHasSkippedIntro = true;
                         }
                     });
             }
@@ -565,7 +554,7 @@ void Graphics()
         }
         else if (eGameType == Game::Lexus2 || eGameType == Game::OgreF)
         {
-            spdlog::info("Shadow Draw Distance: Unsupported game for this feature.")
+            spdlog::info("Shadow Draw Distance: Unsupported game for this feature.");
         }
 
         if (ShadowDrawDistanceScanResult)
