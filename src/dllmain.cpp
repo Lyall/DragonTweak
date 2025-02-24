@@ -546,35 +546,37 @@ void Graphics()
 
     if (bShadowDrawDistance) 
     {
+        std::uint8_t* ShadowDrawDistanceScanResult = nullptr;
+
         if (eGameType == Game::Sparrow)
         {
             // Pirate: Shadow draw distance
-            std::uint8_t* ShadowDrawDistanceScanResult = Memory::PatternScan(exeModule, "75 ?? C5 ?? 10 ?? ?? ?? ?? ?? C5 ?? ?? ?? 48 8D ?? ?? ?? 49 ?? ?? C5 ?? 11 ?? ?? ??");
-            if (ShadowDrawDistanceScanResult)
-            {
-                spdlog::info("Shadow Draw Distance: Address: {:s}+0x{:x}", sExeName, ShadowDrawDistanceScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(ShadowDrawDistanceScanResult, "\xEB", 1);
-            }
-            else
-            {
-                spdlog::error("Shadow Draw Distance: Pattern scan(s) failed.");
-            }
+            ShadowDrawDistanceScanResult = Memory::PatternScan(exeModule, "75 ?? C5 ?? 10 ?? ?? ?? ?? ?? C5 ?? ?? ?? 48 8D ?? ?? ?? 49 ?? ?? C5 ?? 11 ?? ?? ??");
         }
         else if (eGameType == Game::Elvis || eGameType == Game::Aston || eGameType == Game::Coyote)
         {
             // IW/Gaiden/LJ: Shadow draw distance
-            std::uint8_t* ShadowDrawDistanceScanResult = Memory::PatternScan(exeModule, "75 ?? C5 ?? 57 ?? C4 ?? ?? ?? ?? C5 ?? ?? ?? C5 ?? 57 ?? C5 ?? 10 ??");
-            if (ShadowDrawDistanceScanResult)
-            {
-                spdlog::info("Shadow Draw Distance: Address: {:s}+0x{:x}", sExeName, ShadowDrawDistanceScanResult - (std::uint8_t*)exeModule);
-                Memory::PatchBytes(ShadowDrawDistanceScanResult, "\xEB", 1);
-            }
-            else
-            {
-                spdlog::error("Shadow Draw Distance: Pattern scan(s) failed.");
-            }
+            ShadowDrawDistanceScanResult = Memory::PatternScan(exeModule, "75 ?? C5 ?? 57 ?? C4 ?? ?? ?? ?? C5 ?? ?? ?? C5 ?? 57 ?? C5 ?? 10 ??");
+        }
+        else if (eGameType == Game::Yazawa || eGameType == Game::Judge) 
+        {
+            // LAD7/Judgment: Shadow draw distance
+            ShadowDrawDistanceScanResult = Memory::PatternScan(exeModule, "75 ?? C5 ?? ?? ?? C5 ?? 57 ?? C5 ?? 10 ?? C5 ?? ?? ?? C5 ?? ?? ?? ?? ?? ?? ?? C5 ?? 10 ?? ?? ??");
+        }
+        else if (eGameType == Game::Lexus2 || eGameType == Game::OgreF)
+        {
+            spdlog::info("Shadow Draw Distance: Unsupported game for this feature.")
         }
 
+        if (ShadowDrawDistanceScanResult)
+        {
+            spdlog::info("Shadow Draw Distance: Address: {:s}+0x{:x}", sExeName, ShadowDrawDistanceScanResult - (std::uint8_t*)exeModule);
+            Memory::PatchBytes(ShadowDrawDistanceScanResult, "\xEB", 1);
+        }
+        else
+        {
+            spdlog::error("Shadow Draw Distance: Pattern scan(s) failed.");
+        }
     }
     
     if (bAdjustLOD) 
