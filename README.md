@@ -5,15 +5,15 @@
 
 **DragonTweak** is an ASI plugin for Dragon Engine games that can:
 - Disable pillarboxing/letterboxing.
-- Adjust shadow resolution.
+- Adjust shadow quality.
 - Adjust level of detail (LOD).
 - Skip intro logos.
-### Current Features 
 
-| Game                                              | Disable Pillarboxing/Letterboxing | Adjust Shadow Resolution | Adjust LOD | Skip Intro Logos |
+### Current Features 
+| Game                                              | Disable Pillarboxing/Letterboxing | Adjust Shadow Quality    | Adjust LOD | Skip Intro Logos |
 |---------------------------------------------------|-----------------------------------|--------------------------|------------|------------------|
-| Like a Dragon: Pirate Yakuza in Hawaii            | ✔️                               | ✔️ + Draw Distance       | ✔️         | ✔️              |
-| Like a Dragon: Infinite Wealth                    | ✔️                               | ✔️ + Draw Distance       | ✔️         | ✔️              |
+| Like a Dragon: Pirate Yakuza in Hawaii            | ✔️                               | ✔️                       | ✔️         | ✔️              |
+| Like a Dragon: Infinite Wealth                    | ✔️                               | ✔️                       | ✔️         | ✔️              |
 | Like a Dragon Gaiden: The Man Who Erased His Name | ✔️                               | ✔️                       | ✔️         | ✔️              |
 | Lost Judgment                                     | ✔️                               | ✔️                       | ✔️         | ✔️              |
 | Yakuza: Like A Dragon                             | ✔️                               | ✔️                       | ❌         | ✔️              |
@@ -34,7 +34,7 @@
 
 ## Troubleshooting
 - If the ASI loader name **`dinput8.dll`** is incompatible with your configuration, please refer to this [list of possible DLL proxies](https://github.com/ThirteenAG/Ultimate-ASI-Loader#description).
-- Yakuza 6 + Kiwami 2 use a different folder structure so remember to make sure that **`DragonTweak.asi`**, **`DragonTweak.ini`** and **`dinput8.dll`** are in the same folder as **`Yakuza6.exe`** or **`YakuzaKiwami2.exe`**.
+- **Yakuza 6 & Kiwami 2** use a different folder structure so remember to make sure that **`DragonTweak.asi`**, **`DragonTweak.ini`** and **`dinput8.dll`** are in the same folder as **`Yakuza6.exe`** or **`YakuzaKiwami2.exe`**.
 
 ## Credits
 [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) for ASI loading. <br />
