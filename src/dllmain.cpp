@@ -297,6 +297,8 @@ void IntroSkip()
                                 ctx.rdx = 0xE10; // Set id to "lexus2_title"
                                 bHasSkippedIntro = true;
                             } 
+                            
+                            bHasSkippedIntro = true;
                         }
                     });
             }
@@ -351,7 +353,7 @@ void DisablePillarboxing()
             "40 ?? 57 41 ?? 41 ?? 41 ?? 48 8D ?? ?? ?? ?? ?? ?? 48 81 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 45 33 ??"               // Lost Judgment
         };
 
-        // All: Disable pillarboxing/letterboxing
+        // All: Disable pillarboxing/letterboxing everywhere
         std::vector<std::uint8_t*> DrawBarsScanResults = Memory::MultiPatternScanAll(exeModule, DrawBarsPatterns);
         if (!DrawBarsScanResults.empty())
         {
@@ -372,7 +374,7 @@ void DisablePillarboxing()
     {
         if (eGameType == Game::Sparrow) 
         {
-            // Pirate: Pillarboxing
+            // Pirate: Cutscene pillarboxing
             std::uint8_t* PillarboxingScanResult = Memory::PatternScan(exeModule, "75 ?? BA ?? ?? ?? ?? 48 8B ?? E8 ?? ?? ?? ?? 84 C0 75 ?? BA ?? ?? ?? ?? 48 8B ?? E8 ?? ?? ?? ?? 84 ?? 74 ?? 81 ?? ?? ?? ?? ?? 77 ??");
             if (PillarboxingScanResult)
             {
@@ -387,7 +389,7 @@ void DisablePillarboxing()
         }
         else if (eGameType == Game::Elvis) 
         {
-            // LAD8: Pillarboxing
+            // LAD8: Cutscene pillarboxing
             std::uint8_t* CutscenePillarboxingScanResult = Memory::PatternScan(exeModule, "74 ?? 32 ?? EB ?? 05 ?? ?? ?? ?? 3D ?? ?? ?? ?? 77 ?? 48 8D ?? ?? ?? ?? ??");
             std::uint8_t* TalkPillarboxingScanResult = Memory::PatternScan(exeModule, "0F 85 ?? ?? ?? ?? 8B ?? ?? ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ??");
             if (CutscenePillarboxingScanResult && TalkPillarboxingScanResult)
@@ -465,7 +467,8 @@ void DisablePillarboxing()
         } 
     }
 
-    if (bDisablePillarboxing && eGameType == Game::OgreF) 
+    // Yakuza 6 is a special case in that it forces letterboxing when played at <16:9.
+    if ((bDisableBarsCutscene || bDisableBarsGlobal)  && eGameType == Game::OgreF) 
     {
         // Yakuza 6: Disable letterboxing
         std::uint8_t* LetterboxingScanResult = Memory::PatternScan(exeModule, "76 ?? C5 ?? ?? ?? C5 ?? ?? ?? C5 ?? ?? ?? 44 89 ?? C5 ?? ?? ?? ?? 4C 89 ?? ??");
@@ -541,23 +544,37 @@ void Graphics()
         }
     }
 
-    if (bShadowDrawDistance && (eGameType == Game::Sparrow || eGameType == Game::Elvis)) 
+    if (bShadowDrawDistance) 
     {
-        // Shadow draw distance
-        std::uint8_t* ShadowDrawDistanceScanResult = nullptr;
         if (eGameType == Game::Sparrow)
-            ShadowDrawDistanceScanResult = Memory::PatternScan(exeModule, "75 ?? C5 ?? 10 ?? ?? ?? ?? ?? C5 ?? ?? ?? 48 8D ?? ?? ?? 49 ?? ?? C5 ?? 11 ?? ?? ??");
+        {
+            // Pirate: Shadow draw distance
+            std::uint8_t* ShadowDrawDistanceScanResult = Memory::PatternScan(exeModule, "75 ?? C5 ?? 10 ?? ?? ?? ?? ?? C5 ?? ?? ?? 48 8D ?? ?? ?? 49 ?? ?? C5 ?? 11 ?? ?? ??");
+            if (ShadowDrawDistanceScanResult)
+            {
+                spdlog::info("Shadow Draw Distance: Address: {:s}+0x{:x}", sExeName, ShadowDrawDistanceScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(ShadowDrawDistanceScanResult, "\xEB", 1);
+            }
+            else
+            {
+                spdlog::error("Shadow Draw Distance: Pattern scan(s) failed.");
+            }
+        }
         else if (eGameType == Game::Elvis)
-            ShadowDrawDistanceScanResult = Memory::PatternScan(exeModule, "75 ?? C5 ?? 57 ?? C4 ?? ?? ?? ?? C5 ?? ?? ?? C5 ?? 57 ?? C5 ?? 10 ??");
-        if (ShadowDrawDistanceScanResult)
         {
-            spdlog::info("Shadow Draw Distance: Address: {:s}+0x{:x}", sExeName, ShadowDrawDistanceScanResult - (std::uint8_t*)exeModule);
-            Memory::PatchBytes(ShadowDrawDistanceScanResult, "\xEB", 1);
+            // IW: Shadow draw distance
+            std::uint8_t* ShadowDrawDistanceScanResult = Memory::PatternScan(exeModule, "75 ?? C5 ?? 57 ?? C4 ?? ?? ?? ?? C5 ?? ?? ?? C5 ?? 57 ?? C5 ?? 10 ??");
+            if (ShadowDrawDistanceScanResult)
+            {
+                spdlog::info("Shadow Draw Distance: Address: {:s}+0x{:x}", sExeName, ShadowDrawDistanceScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(ShadowDrawDistanceScanResult, "\xEB", 1);
+            }
+            else
+            {
+                spdlog::error("Shadow Draw Distance: Pattern scan(s) failed.");
+            }
         }
-        else
-        {
-            spdlog::error("Shadow Draw Distance: Pattern scan(s) failed.");
-        }
+
     }
     
     if (bAdjustLOD) 
