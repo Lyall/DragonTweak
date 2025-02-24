@@ -297,7 +297,7 @@ void IntroSkip()
                                 ctx.rdx = 0xE10; // Set id to "lexus2_title"
                                 bHasSkippedIntro = true;
                             } 
-                            
+
                             bHasSkippedIntro = true;
                         }
                     });
@@ -560,9 +560,9 @@ void Graphics()
                 spdlog::error("Shadow Draw Distance: Pattern scan(s) failed.");
             }
         }
-        else if (eGameType == Game::Elvis)
+        else if (eGameType == Game::Elvis || eGameType == Game::Aston || eGameType == Game::Coyote)
         {
-            // IW: Shadow draw distance
+            // IW/Gaiden/LJ: Shadow draw distance
             std::uint8_t* ShadowDrawDistanceScanResult = Memory::PatternScan(exeModule, "75 ?? C5 ?? 57 ?? C4 ?? ?? ?? ?? C5 ?? ?? ?? C5 ?? 57 ?? C5 ?? 10 ??");
             if (ShadowDrawDistanceScanResult)
             {
