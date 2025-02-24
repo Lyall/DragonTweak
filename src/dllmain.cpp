@@ -283,11 +283,17 @@ void IntroSkip()
     
                             // Yakuza Kiwami 2
                             if (eGameType == Game::Lexus2 && Util::string_cmp_caseless(sSceneID, sLexus2SkipID)) 
+                            {
                                 ctx.rdx = 0xE10; // Set id to "lexus2_title"
-
-                            iRunCount++;
-                            if (iRunCount > 1)
                                 bHasSkippedIntro = true;
+                                spdlog::info("Intro Skip: Skipped intro logos.");
+                            }
+
+                            if (eGameType != Game::Lexus2)
+                            {
+                                bHasSkippedIntro = true;
+                                spdlog::info("Intro Skip: Skipped intro logos.");
+                            }
                         }
                     });
             }
