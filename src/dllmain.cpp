@@ -381,6 +381,28 @@ void DisablePillarboxing()
             {
                 spdlog::error("Disable Pillarboxing: Pillarboxing: Pattern scan(s) failed.");
             }
+
+            // Pirate: Title card pillarboxing
+            std::uint8_t* TitleCardsScanResult = Memory::PatternScan(exeModule, "C5 F8 ?? ?? 72 ?? 48 39 ?? ?? ?? ?? ?? 75 ?? B9 ?? ?? ?? ?? E8 ?? ?? ?? ??");
+            if (TitleCardsScanResult)
+            {
+                spdlog::info("Disable Pillarboxing: Title Cards: Address: {:s}+0x{:x}", sExeName, TitleCardsScanResult - (std::uint8_t*)exeModule);
+                static SafetyHookMid TitleCardsMidHook{};
+                TitleCardsMidHook = safetyhook::create_mid(TitleCardsScanResult + 0x24,
+                    [](SafetyHookContext &ctx)
+                    {
+                        if (ctx.rbx)
+                        {
+                            // Set ZF to jump over pillarboxing so that title cards are not pillarboxed
+                            if (*reinterpret_cast<int*>(ctx.rbx + 0x8) == 2) 
+                                ctx.rflags |= (1ULL << 6);
+                        }
+                    });
+            }
+            else
+            {
+                spdlog::error("Disable Pillarboxing: Title Cards: Pattern scan(s) failed.");
+            }
         }
         else if (eGameType == Game::Elvis) 
         {
