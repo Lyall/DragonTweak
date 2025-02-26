@@ -237,7 +237,6 @@ void IntroSkip()
             std::uint8_t* CreateConfigSceneScanResult = Memory::MultiPatternScan(exeModule, CreateConfigScenePatterns);
             if (CreateConfigSceneScanResult)
             {
-                static int iRunCount = 0;
                 spdlog::info("Intro Skip: Create Config Scene: Address: {:s}+0x{:x}", sExeName, CreateConfigSceneScanResult - (std::uint8_t*)exeModule);
                 static SafetyHookMid CreateConfigSceneMidHook{};
                 CreateConfigSceneMidHook = safetyhook::create_mid(CreateConfigSceneScanResult,
@@ -340,8 +339,6 @@ void IntroSkip()
     }
 }
 
-std::uint8_t* MovieStatus = nullptr;
-
 void DisablePillarboxing()
 {
     if (bDisableBarsGlobal) 
@@ -414,7 +411,7 @@ void DisablePillarboxing()
         }
         else if (eGameType == Game::Elvis) 
         {
-            // LAD8: Cutscene pillarboxing
+            // IW: Cutscene pillarboxing
             std::uint8_t* CutscenePillarboxingScanResult = Memory::PatternScan(exeModule, "74 ?? 32 ?? EB ?? 05 ?? ?? ?? ?? 3D ?? ?? ?? ?? 77 ?? 48 8D ?? ?? ?? ?? ??");
             std::uint8_t* TalkPillarboxingScanResult = Memory::PatternScan(exeModule, "0F 85 ?? ?? ?? ?? 8B ?? ?? ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ?? 45 ?? ?? 75 ??");
             if (CutscenePillarboxingScanResult && TalkPillarboxingScanResult)
@@ -427,6 +424,28 @@ void DisablePillarboxing()
             else
             {
                 spdlog::error("Disable Pillarboxing: Pillarboxing: Pattern scan(s) failed.");
+            }
+
+            // IW: Title card pillarboxing
+            std::uint8_t* TitleCardsScanResult = Memory::PatternScan(exeModule, "C5 F8 ?? ?? 72 ?? 4C 39 ?? ?? ?? ?? ?? 75 ?? 41 ?? ?? ?? E8 ?? ?? ?? ?? 48 89 ??");
+            if (TitleCardsScanResult)
+            {
+                spdlog::info("Disable Pillarboxing: Title Cards: Address: {:s}+0x{:x}", sExeName, TitleCardsScanResult - (std::uint8_t*)exeModule);
+                static SafetyHookMid TitleCardsMidHook{};
+                TitleCardsMidHook = safetyhook::create_mid(TitleCardsScanResult + 0x23,
+                    [](SafetyHookContext &ctx)
+                    {
+                        if (ctx.rbx)
+                        {
+                            // Set ZF to jump over pillarboxing so that title cards are not pillarboxed
+                            if (*reinterpret_cast<int*>(ctx.rbx + 0x8) == 2) 
+                                ctx.rflags |= (1ULL << 6);
+                        }
+                    });
+            }
+            else
+            {
+                spdlog::error("Disable Pillarboxing: Title Cards: Pattern scan(s) failed.");
             }
         }
         else if (eGameType == Game::Aston || eGameType == Game::Coyote) 
