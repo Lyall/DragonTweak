@@ -263,9 +263,9 @@ void IntroSkip()
                             }
                             
                             // Yakuza: Like a Dragon
-                            if (eGameType == Game::Yazawa && Util::string_cmp_caseless(sSceneID, sYazawaSkipID)) 
+                            if (eGameType == Game::Yazawa && Util::string_cmp_caseless(sSceneID, sYazawaSkipID))
                                 ctx.rdx = 0x2096; // Set ID to "yazawa_title"
-    
+                                
                             // Like a Dragon: Gaiden
                             if (eGameType == Game::Aston && Util::string_cmp_caseless(sSceneID, sAstonSkipID)) 
                             {
@@ -429,6 +429,20 @@ void DisablePillarboxing()
             {
                 spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
                 Memory::PatchBytes(CutsceneBarsScanResult + 0x3, "\x84", 1);
+            }
+            else 
+            {
+                spdlog::error("Disable Pillarboxing/Letterboxing: Pattern scan(s) failed.");
+            }
+        }
+        else if (eGameType == Game::Yazawa)
+        {
+            // LAD7: Cutscene pillarboxing
+            std::uint8_t* CutsceneBarsScanResult = Memory::PatternScan(exeModule, "0F 85 ?? ?? ?? ?? 44 38 ?? ?? 75 ?? 44 38 ?? ?? 75 ?? 44 38 ?? ?? 75 ??");
+            if (CutsceneBarsScanResult) 
+            {
+                spdlog::info("Disable Pillarboxing/Letterboxing: Cutscene: Address: {:s}+0x{:x}", sExeName, CutsceneBarsScanResult - (std::uint8_t*)exeModule);
+                Memory::PatchBytes(CutsceneBarsScanResult, "\x90\x90\x90\x90\x90\x90", 6);
             }
             else 
             {
