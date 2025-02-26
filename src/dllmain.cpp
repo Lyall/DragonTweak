@@ -260,40 +260,48 @@ void IntroSkip()
                             {
                                 ctx.rdx = 0x10D4; // Set to coyote_title
                                 *reinterpret_cast<int*>(ctx.r8 + 0x4) = 0xF4; // Stage change!
+                                bHasSkippedIntro = true;
                             }
-                            
+
                             // Yakuza: Like a Dragon
                             if (eGameType == Game::Yazawa && Util::string_cmp_caseless(sSceneID, sYazawaSkipID))
+                            {
                                 ctx.rdx = 0x2096; // Set ID to "yazawa_title"
-                                
+                                *reinterpret_cast<int*>(ctx.r8 + 0x4) = 0xCF; // Stage change!
+                                bHasSkippedIntro = true;
+                            }
+
                             // Like a Dragon: Gaiden
                             if (eGameType == Game::Aston && Util::string_cmp_caseless(sSceneID, sAstonSkipID)) 
                             {
                                 ctx.rdx = 0x177; // Set id to "aston_title"
                                 *reinterpret_cast<int*>(ctx.r8 + 0x4) = 0xF4; // Stage change!
+                                bHasSkippedIntro = true;
                             } 
                             
                             // Judgment
                             if (eGameType == Game::Judge && Util::string_cmp_caseless(sSceneID, sJudgeSkipID)) 
+                            {
                                 ctx.rdx = 0xC88; // Set id to "judge_title"
+                                bHasSkippedIntro = true;
+                            }
     
                             // Yakuza 6
-                            if (eGameType == Game::OgreF && Util::string_cmp_caseless(sSceneID, sOgreFSkipID)) 
+                            if (eGameType == Game::OgreF && Util::string_cmp_caseless(sSceneID, sOgreFSkipID))
+                            {
                                 ctx.rdx = 0x62E; // Set id to "title"
-    
+                                bHasSkippedIntro = true;
+                            }
+
                             // Yakuza Kiwami 2
                             if (eGameType == Game::Lexus2 && Util::string_cmp_caseless(sSceneID, sLexus2SkipID)) 
                             {
                                 ctx.rdx = 0xE10; // Set id to "lexus2_title"
                                 bHasSkippedIntro = true;
-                                spdlog::info("Intro Skip: Skipped intro logos.");
                             }
 
-                            if (eGameType != Game::Lexus2)
-                            {
-                                bHasSkippedIntro = true;
+                            if (bHasSkippedIntro)
                                 spdlog::info("Intro Skip: Skipped intro logos.");
-                            }
                         }
                     });
             }
